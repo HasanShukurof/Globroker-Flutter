@@ -35,8 +35,10 @@ class _TruckScreenState extends State<TruckScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       resizeToAvoidBottomInset: false,
       appBar: AppBar(
+        surfaceTintColor: Colors.white,
         centerTitle: true,
         backgroundColor: Colors.white,
         title: const Text(

@@ -37,8 +37,10 @@ class _CarScreenState extends State<CarScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       resizeToAvoidBottomInset: false,
       appBar: AppBar(
+        surfaceTintColor: Colors.white,
         centerTitle: true,
         backgroundColor: Colors.white,
         title: const Text(
