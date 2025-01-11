@@ -1,4 +1,4 @@
-package com.hasanshukurov.globroker.globroker
+package com.hasanshukurov.globroker
 
 import io.flutter.embedding.android.FlutterActivity
 

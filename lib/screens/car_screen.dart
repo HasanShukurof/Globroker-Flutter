@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:globroker/screens/key_input_service.dart';
+import 'package:intl/intl.dart';
 
 class CarScreen extends StatefulWidget {
   const CarScreen({super.key});
@@ -8,7 +9,8 @@ class CarScreen extends StatefulWidget {
   State<CarScreen> createState() => _CarScreenState();
 }
 
-class _CarScreenState extends State<CarScreen> {
+class _CarScreenState extends State<CarScreen>
+    with SingleTickerProviderStateMixin {
   final matorController = TextEditingController();
   final qiymetController = TextEditingController();
   final dateController = TextEditingController();
@@ -34,6 +36,38 @@ class _CarScreenState extends State<CarScreen> {
   late int gunFerqi;
   late int ilFerqi;
 
+  bool isDetailsVisible = false;
+  late AnimationController _animationController;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
+    _animation = Tween<double>(begin: 0, end: 1).animate(_animationController);
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
+
+  void _toggleDetails() {
+    setState(() {
+      gunFerqi = ferq.inDays;
+      isDetailsVisible = !isDetailsVisible;
+      if (isDetailsVisible) {
+        _animationController.forward();
+      } else {
+        _animationController.reverse();
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -48,7 +82,7 @@ class _CarScreenState extends State<CarScreen> {
           style: TextStyle(
             color: Colors.black,
             fontWeight: FontWeight.bold,
-            fontSize: 26,
+            fontSize: 20,
           ),
         ),
       ),
@@ -199,47 +233,75 @@ class _CarScreenState extends State<CarScreen> {
                           qiymetController.text.isEmpty &&
                           myValue == 0) {
                         formatedResultText = "Boş Xanaları Doldurun";
+                        isDetailsVisible = false;
+                        _animationController.reverse();
                       } else {
                         if (myValue == 0) {
                           formatedResultText = "Boş Xanaları Doldurun";
+                          isDetailsVisible = false;
+                          _animationController.reverse();
                         } else if (myValue == 1) {
                           if (dateController.text.isEmpty) {
                             formatedResultText = "Tarix qeyd edin";
+                            isDetailsVisible = false;
+                            _animationController.reverse();
                           } else if (matorController.text.isEmpty) {
                             formatedResultText = "Mühərrik həcmini qeyd edin";
+                            isDetailsVisible = false;
+                            _animationController.reverse();
                           } else if (qiymetController.text.isEmpty) {
                             formatedResultText = "Qiymət qeyd edin";
+                            isDetailsVisible = false;
+                            _animationController.reverse();
                           } else {
                             benzin();
                           }
                         } else if (myValue == 2) {
                           if (dateController.text.isEmpty) {
                             formatedResultText = "Tarix qeyd edin";
+                            isDetailsVisible = false;
+                            _animationController.reverse();
                           } else if (matorController.text.isEmpty) {
                             formatedResultText = "Mühərrik həcmini qeyd edin";
+                            isDetailsVisible = false;
+                            _animationController.reverse();
                           } else if (qiymetController.text.isEmpty) {
                             formatedResultText = "Qiymət qeyd edin";
+                            isDetailsVisible = false;
+                            _animationController.reverse();
                           } else {
                             dizel();
                           }
                         } else if (myValue == 3) {
                           if (dateController.text.isEmpty) {
                             formatedResultText = "Tarix qeyd edin";
+                            isDetailsVisible = false;
+                            _animationController.reverse();
                           } else if (matorController.text.isEmpty) {
                             formatedResultText = "Mühərrik həcmini qeyd edin";
+                            isDetailsVisible = false;
+                            _animationController.reverse();
                           } else if (qiymetController.text.isEmpty) {
                             formatedResultText = "Qiymət qeyd edin";
+                            isDetailsVisible = false;
+                            _animationController.reverse();
                           } else {
                             hybrid();
                           }
                         } else if (myValue == 4) {
                           if (dateController.text.isEmpty) {
                             formatedResultText = "Tarix qeyd edin";
+                            isDetailsVisible = false;
+                            _animationController.reverse();
                           } else if (matorController.text.isEmpty) {
                             formatedResultText =
                                 "Mühərrik həcmini  0  qeyd edin";
+                            isDetailsVisible = false;
+                            _animationController.reverse();
                           } else if (qiymetController.text.isEmpty) {
                             formatedResultText = "Qiymət qeyd edin";
+                            isDetailsVisible = false;
+                            _animationController.reverse();
                           } else {
                             elektrik();
                           }
@@ -257,15 +319,83 @@ class _CarScreenState extends State<CarScreen> {
                   ),
                 ),
               ),
-              const SizedBox(height: 50),
+              const SizedBox(height: 20),
 
               //  Kassa Texti
-              Text(
-                "Kassa: $formatedResultText",
-                style:
-                    const TextStyle(fontWeight: FontWeight.bold, fontSize: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      "Kassa: $formatedResultText",
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 20),
+                    ),
+                  ),
+                  // Flexible(
+                  //   child: IconButton(
+                  //     icon: Icon(isDetailsVisible
+                  //         ? Icons.arrow_drop_up
+                  //         : Icons.arrow_drop_down),
+                  //     onPressed: _toggleDetails,
+                  //   ),
+                  // ),
+                ],
               ),
+
               const SizedBox(height: 20),
+              // Detaylar
+              SizeTransition(
+                sizeFactor: _animation,
+                child: isDetailsVisible
+                    ? Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[100],
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              "Gömrük Yığımı: $yigim AZN",
+                              style: const TextStyle(fontSize: 16),
+                            ),
+                            Text("Vəsiqə Pulu: $vesiqePulu AZN",
+                                style: const TextStyle(fontSize: 16)),
+                            Text(
+                                "İdxal Rüsumu: ${idxalRusumu.toStringAsFixed(2)} AZN",
+                                style: const TextStyle(fontSize: 16)),
+                            Text(
+                                "Aksiz Vergisi: ${aksiz.toStringAsFixed(2)} AZN",
+                                style: const TextStyle(fontSize: 16)),
+                            Text("ƏDV: ${edv.toStringAsFixed(2)} AZN",
+                                style: const TextStyle(fontSize: 16)),
+                            Text(
+                                "Xidmət Haqqı: ${xidmetHaqqi.toStringAsFixed(2)} AZN",
+                                style: const TextStyle(fontSize: 16)),
+                            Text(
+                                "Uyğunluq: ${gunFerqi >= 365 ? kohneUygunluq : yeniUygunluq} AZN",
+                                style: const TextStyle(fontSize: 16)),
+                            Text("Utilizasiya: $utilizasiya AZN",
+                                style: const TextStyle(fontSize: 16)),
+                            const SizedBox(
+                              height: 10,
+                            ),
+                            const Divider(
+                              height: 2,
+                              color: Colors.black,
+                            ),
+                            const SizedBox(
+                              height: 10,
+                            ),
+                            Text("Toplam: ${result?.toStringAsFixed(2)} AZN",
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.bold, fontSize: 18)),
+                          ],
+                        ),
+                      )
+                    : const SizedBox.shrink(),
+              ),
             ],
           ),
         ),
@@ -390,6 +520,9 @@ class _CarScreenState extends State<CarScreen> {
           utilizasiya;
     }
     formatedResultText = "${result!.toStringAsFixed(2)} AZN";
+    if (result != null) {
+      _toggleDetails();
+    }
   }
 
   void dizel() {
@@ -510,6 +643,9 @@ class _CarScreenState extends State<CarScreen> {
     }
 
     formatedResultText = "${result!.toStringAsFixed(2)} AZN";
+    if (result != null) {
+      _toggleDetails();
+    }
   }
 
   void hybrid() {
@@ -636,6 +772,9 @@ class _CarScreenState extends State<CarScreen> {
     }
 
     formatedResultText = "${result!.toStringAsFixed(2)} AZN";
+    if (result != null) {
+      _toggleDetails();
+    }
   }
 
   void elektrik() {
@@ -685,11 +824,15 @@ class _CarScreenState extends State<CarScreen> {
     result = yigim + vesiqePulu + idxalRusumu + xidmetHaqqi + utilizasiya;
 
     formatedResultText = "${result!.toStringAsFixed(2)} AZN";
+    if (result != null) {
+      _toggleDetails();
+    }
   }
 
   Future<void> datePicker() async {
     DateTime? picked = await showDatePicker(
       context: context,
+      fieldHintText: 'gün-ay-il',
       initialDate: DateTime.now(),
       firstDate: DateTime(2000),
       lastDate: DateTime(2101),
@@ -701,7 +844,7 @@ class _CarScreenState extends State<CarScreen> {
     ilFerqi = day1.year - day2.year;
 
     if (picked != null) {
-      dateController.text = picked.toString().split(" ")[0];
+      dateController.text = DateFormat('dd-MM-yyyy').format(picked);
     }
   }
 }

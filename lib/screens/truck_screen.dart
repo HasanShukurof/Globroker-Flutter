@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:globroker/screens/key_input_service.dart';
+import 'package:intl/intl.dart';
 
 class TruckScreen extends StatefulWidget {
   const TruckScreen({super.key});
@@ -8,7 +9,8 @@ class TruckScreen extends StatefulWidget {
   State<TruckScreen> createState() => _TruckScreenState();
 }
 
-class _TruckScreenState extends State<TruckScreen> {
+class _TruckScreenState extends State<TruckScreen>
+    with SingleTickerProviderStateMixin {
   final matorController = TextEditingController();
   final qiymetController = TextEditingController();
   final dateController = TextEditingController();
@@ -31,6 +33,39 @@ class _TruckScreenState extends State<TruckScreen> {
   int myValue = 0;
   Duration ferq = const Duration();
   late int gunFerqi;
+  late int ilFerqi;
+
+  bool isDetailsVisible = false;
+  late AnimationController _animationController;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
+    _animation = Tween<double>(begin: 0, end: 1).animate(_animationController);
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
+
+  void _toggleDetails() {
+    setState(() {
+      gunFerqi = ferq.inDays;
+      isDetailsVisible = !isDetailsVisible;
+      if (isDetailsVisible) {
+        _animationController.forward();
+      } else {
+        _animationController.reverse();
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -46,7 +81,7 @@ class _TruckScreenState extends State<TruckScreen> {
           style: TextStyle(
             color: Colors.black,
             fontWeight: FontWeight.bold,
-            fontSize: 26,
+            fontSize: 20,
           ),
         ),
       ),
@@ -178,36 +213,58 @@ class _TruckScreenState extends State<TruckScreen> {
                         matorController.text.isEmpty &&
                         qiymetController.text.isEmpty) {
                       formatedResultText = "Boş Xanaları Doldurun";
+                      isDetailsVisible = false;
+                      _animationController.reverse();
                     } else {
                       if (myValue == 0) {
                         formatedResultText = "Boş Xanaları Doldurun";
+                        isDetailsVisible = false;
+                        _animationController.reverse();
                       } else if (myValue == 1) {
                         if (dateController.text.isEmpty) {
                           formatedResultText = "Tarix qeyd edin";
+                          isDetailsVisible = false;
+                          _animationController.reverse();
                         } else if (matorController.text.isEmpty) {
                           formatedResultText = "Mühərrik həcmini qeyd edin";
+                          isDetailsVisible = false;
+                          _animationController.reverse();
                         } else if (qiymetController.text.isEmpty) {
                           formatedResultText = "Qiymət qeyd edin";
+                          isDetailsVisible = false;
+                          _animationController.reverse();
                         } else {
                           dartici();
                         }
                       } else if (myValue == 2) {
                         if (dateController.text.isEmpty) {
                           formatedResultText = "Tarix qeyd edin";
+                          isDetailsVisible = false;
+                          _animationController.reverse();
                         } else if (matorController.text.isEmpty) {
                           formatedResultText = "Mühərrik həcmini  0  qeyd edin";
+                          isDetailsVisible = false;
+                          _animationController.reverse();
                         } else if (qiymetController.text.isEmpty) {
                           formatedResultText = "Qiymət qeyd edin";
+                          isDetailsVisible = false;
+                          _animationController.reverse();
                         } else {
                           qoshqu();
                         }
                       } else if (myValue == 3) {
                         if (dateController.text.isEmpty) {
                           formatedResultText = "Tarix qeyd edin";
+                          isDetailsVisible = false;
+                          _animationController.reverse();
                         } else if (matorController.text.isEmpty) {
                           formatedResultText = "Mühərrik həcmini qeyd edin";
+                          isDetailsVisible = false;
+                          _animationController.reverse();
                         } else if (qiymetController.text.isEmpty) {
                           formatedResultText = "Qiymət qeyd edin";
+                          isDetailsVisible = false;
+                          _animationController.reverse();
                         } else {
                           yuk();
                         }
@@ -223,15 +280,81 @@ class _TruckScreenState extends State<TruckScreen> {
                   ),
                 ),
               ),
-              const SizedBox(height: 50),
-
+              const SizedBox(height: 20),
               //  Kassa Texti
-              Text(
-                "Kassa: $formatedResultText",
-                style:
-                    const TextStyle(fontWeight: FontWeight.bold, fontSize: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      "Kassa: $formatedResultText",
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 20),
+                    ),
+                  ),
+                  // Flexible(
+                  //   child: IconButton(
+                  //     icon: Icon(isDetailsVisible
+                  //         ? Icons.arrow_drop_up
+                  //         : Icons.arrow_drop_down),
+                  //     onPressed: _toggleDetails,
+                  //   ),
+                  // ),
+                ],
               ),
               const SizedBox(height: 20),
+              SizeTransition(
+                sizeFactor: _animation,
+                child: isDetailsVisible
+                    ? Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[100],
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              "Gömrük Yığımı: $yigim AZN",
+                              style: const TextStyle(fontSize: 16),
+                            ),
+                            Text("Vəsiqə Pulu: $vesiqePulu AZN",
+                                style: const TextStyle(fontSize: 16)),
+                            Text(
+                                "İdxal Rüsumu: ${idxalRusumu.toStringAsFixed(2)} AZN",
+                                style: const TextStyle(fontSize: 16)),
+                            if (myValue != 2)
+                              Text(
+                                  "Aksiz Vergisi: ${aksiz.toStringAsFixed(2)} AZN",
+                                  style: const TextStyle(fontSize: 16)),
+                            Text("ƏDV: ${edv.toStringAsFixed(2)} AZN",
+                                style: const TextStyle(fontSize: 16)),
+                            Text(
+                                "Xidmət Haqqı: ${xidmetHaqqi.toStringAsFixed(2)} AZN",
+                                style: const TextStyle(fontSize: 16)),
+                            if (myValue != 2)
+                              Text(
+                                  "Uyğunluq: ${gunFerqi >= 365 ? kohneUygunluq : yeniUygunluq} AZN",
+                                  style: const TextStyle(fontSize: 16)),
+                            const SizedBox(
+                              height: 10,
+                            ),
+                            const Divider(
+                              height: 2,
+                              color: Colors.black,
+                            ),
+                            const SizedBox(
+                              height: 10,
+                            ),
+                            Text("Toplam: ${result?.toStringAsFixed(2)} AZN",
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.bold, fontSize: 18)),
+                          ],
+                        ),
+                      )
+                    : const SizedBox.shrink(),
+              ),
             ],
           ),
         ),
@@ -244,7 +367,6 @@ class _TruckScreenState extends State<TruckScreen> {
       mator = int.parse(matorController.text);
       qiymet = double.parse(qiymetController.text);
       gunFerqi = ferq.inDays;
-
       if (qiymet != null) {
         qiymetAzn = qiymet! * 1.70;
       }
@@ -278,6 +400,9 @@ class _TruckScreenState extends State<TruckScreen> {
       }
 
       formatedResultText = "${result!.toStringAsFixed(2)} AZN";
+      if (result != null) {
+        _toggleDetails();
+      }
     });
   }
 
@@ -285,7 +410,9 @@ class _TruckScreenState extends State<TruckScreen> {
     setState(() {
       mator = int.parse(matorController.text);
       qiymet = double.parse(qiymetController.text);
-      gunFerqi = ferq.inDays;
+      if (dateController.text.isNotEmpty) {
+        gunFerqi = ferq.inDays;
+      }
 
       if (qiymet != null) {
         qiymetAzn = qiymet! * 1.70;
@@ -322,6 +449,9 @@ class _TruckScreenState extends State<TruckScreen> {
 
       formatedResultText = "${result!.toStringAsFixed(2)} AZN";
     });
+    if (result != null) {
+      _toggleDetails();
+    }
   }
 
   void yuk() {
@@ -361,7 +491,13 @@ class _TruckScreenState extends State<TruckScreen> {
             idxalRusumu = qiymetAzn! * 5 / 100;
           }
         }
-
+        if (mator != null) {
+          if (gunFerqi >= 2555) {
+            aksiz = mator! * 0.30 * 1.2;
+          } else {
+            aksiz = mator! * 0.30;
+          }
+        }
         //   EDV
         edv = ((qiymetAzn! + idxalRusumu + vesiqePulu) * 18) / 100;
 
@@ -385,11 +521,15 @@ class _TruckScreenState extends State<TruckScreen> {
         formatedResultText = "${result!.toStringAsFixed(2)} AZN";
       },
     );
+    if (result != null) {
+      _toggleDetails();
+    }
   }
 
   Future<void> datePicker() async {
     DateTime? picked = await showDatePicker(
       context: context,
+      fieldHintText: 'gün-ay-il',
       initialDate: DateTime.now(),
       firstDate: DateTime(2000),
       lastDate: DateTime(2101),
@@ -398,9 +538,10 @@ class _TruckScreenState extends State<TruckScreen> {
     final day1 = DateTime.now();
     final day2 = picked;
     ferq = day1.difference(day2!);
+    ilFerqi = day1.year - day2.year;
 
     if (picked != null) {
-      dateController.text = picked.toString().split(" ")[0];
+      dateController.text = DateFormat('dd-MM-yyyy').format(picked);
     }
   }
 }

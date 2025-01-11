@@ -1,0 +1,29 @@
+# Flutter spesifik kurallar
+-keep class io.flutter.app.** { *; }
+-keep class io.flutter.plugin.** { *; }
+-keep class io.flutter.util.** { *; }
+-keep class io.flutter.view.** { *; }
+-keep class io.flutter.** { *; }
+-keep class io.flutter.plugins.** { *; }
+
+# Kotlin kuralları
+-keep class kotlin.** { *; }
+-keep class kotlinx.** { *; }
+
+# Navigation kuralları
+-keepnames class androidx.navigation.fragment.NavHostFragment
+-keep class * extends androidx.fragment.app.Fragment{}
+
+# Serializable ve Parcelable kuralları
+-keepnames class * extends android.os.Parcelable
+-keepnames class * extends java.io.Serializable
+
+# Genel Android kuralları
+-keepattributes Signature
+-keepattributes *Annotation*
+-keepattributes SourceFile,LineNumberTable
+-keep public class * extends java.lang.Exception
+
+# Kullanılan kütüphaneler için koruma
+-keep class androidx.lifecycle.** { *; }
+-keep class androidx.core.** { *; }

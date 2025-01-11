@@ -119,7 +119,7 @@ class QuestionsScreen extends StatelessWidget {
             child: ExpansionTile(
               shape: const Border(),
               title: Text(
-                'Avans-gömrük ödənişləri nədən formalaşır?',
+                'Şəxsin balansının artırılması məqsədilə köçürdüyü vəsait elektron hesab səhifəsində hansı müddətdə öz əksini tapır?',
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w500,
@@ -129,7 +129,7 @@ class QuestionsScreen extends StatelessWidget {
                 Padding(
                   padding: EdgeInsets.all(16.0),
                   child: Text(
-                    'Şəxsin hökumət ödəniş portalının Dövlət Gömrük Komitəsi üzrə VÖEN-Avans bölməsindən və Banklardan ödəniş tapşırığına əsasən sair daxilolmalar üzrə dövlət büdcəsinə apardığı ödnişlərdən formalaşır. Qeyd: Banklardan ödəniş tapşırığı əsasında aparılan sair ödənişlərin anında balansda əks olunması üçün banklardan ödənişin hökumət ödəniş portalı üzərindən aparılmasının tələb olunması tövsiyyə olunur.',
+                    'Şəxsin hökumət ödəniş portalının Dövlət Gömrük Komitəsi üzrə VÖEN-Avans və gömrük bəyannaməsinin nömrəsi bölməsindən, eyni zamanda bankların internet-bank platformalarında olan HÖP bölməsindən apardığı ödənişlər anında, bank köçürmələri və ƏDV depozit hesabından aparılan ödənişlər isə dövlət büdcəsinə daxil olduqdan sonra elektron hesab səhifəsində öz əksini tapır.',
                     style: TextStyle(fontSize: 14),
                   ),
                 ),
