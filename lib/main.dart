@@ -5,12 +5,19 @@ import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:globroker/screens/auth_screen.dart';
+import 'package:globroker/services/notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  // Notification servisini başlat
+  final notificationService = NotificationService();
+  await notificationService.initialize();
+
   runApp(const GloBroker());
 }
 

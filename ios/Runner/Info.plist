@@ -58,5 +58,10 @@
 	<!-- Google Sign In clientId -->
 	<key>GIDClientID</key>
 	<string>522334842203-nb7udfr63brnjuglc0ncnl73plfoc85j.apps.googleusercontent.com</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+		<string>remote-notification</string>
+	</array>
 </dict>
 </plist>

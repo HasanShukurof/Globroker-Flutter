@@ -31,8 +31,8 @@ android {
         applicationId = "com.hasanshukurov.globroker"  // Düzeltildi, tekrar eden .globroker kaldırıldı
         minSdk = 23
         targetSdk = flutter.targetSdkVersion
-        versionCode = 23  // Eski uygulamadan bir fazla (18 + 1)
-        versionName = "4.7.1"  // Eski versiyondan büyük (4.6'dan büyük)
+        versionCode = 27  // Eski uygulamadan bir fazla (18 + 1)
+        versionName = "4.4.1"  // Eski versiyondan büyük (4.6'dan büyük)
     }
 
     signingConfigs {
