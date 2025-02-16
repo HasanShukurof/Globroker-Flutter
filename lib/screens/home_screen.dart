@@ -10,6 +10,8 @@ import 'package:globroker/screens/snow_painter.dart';
 import 'package:globroker/screens/tam_gomruk_temsilciliyi_screen.dart';
 import 'package:globroker/screens/truck_screen.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -86,6 +88,15 @@ class _HomeScreenState extends State<HomeScreen>
             fontSize: 26,
           ),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout, color: Colors.black),
+            onPressed: () async {
+              await FirebaseAuth.instance.signOut();
+              await GoogleSignIn().signOut();
+            },
+          ),
+        ],
       ),
       body: Stack(children: [
         Positioned.fill(
