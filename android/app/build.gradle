@@ -1,5 +1,8 @@
 plugins {
     id "com.android.application"
+    // START: FlutterFire Configuration
+    id 'com.google.gms.google-services'
+    // END: FlutterFire Configuration
     id "kotlin-android"
     id "dev.flutter.flutter-gradle-plugin"
 }
@@ -26,7 +29,7 @@ android {
 
     defaultConfig {
         applicationId = "com.hasanshukurov.globroker"  // Düzeltildi, tekrar eden .globroker kaldırıldı
-        minSdk = flutter.minSdkVersion
+        minSdk = 23
         targetSdk = flutter.targetSdkVersion
         versionCode = 23  // Eski uygulamadan bir fazla (18 + 1)
         versionName = "4.7.1"  // Eski versiyondan büyük (4.6'dan büyük)

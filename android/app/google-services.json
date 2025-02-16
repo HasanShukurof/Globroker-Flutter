@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "522334842203",
+    "project_id": "globroker",
+    "storage_bucket": "globroker.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:522334842203:android:753357ae13c7bb70297e7e",
+        "android_client_info": {
+          "package_name": "com.hasanshukurov.globroker"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCdmGCWPX5oPulSYyFJfD3xGnOhmTWRBhA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
