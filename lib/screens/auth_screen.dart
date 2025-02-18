@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
+import 'package:crypto/crypto.dart';
+import 'dart:convert';
+import 'dart:math';
+import 'dart:io';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -181,6 +186,61 @@ class _AuthScreenState extends State<AuthScreen> {
     );
   }
 
+  String _createNonce(int length) {
+    const charset =
+        '0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._';
+    final random = Random.secure();
+    return List.generate(length, (_) => charset[random.nextInt(charset.length)])
+        .join();
+  }
+
+  String _sha256ofString(String input) {
+    final bytes = utf8.encode(input);
+    final digest = sha256.convert(bytes);
+    return digest.toString();
+  }
+
+  Future<void> _handleAppleSignIn() async {
+    if (_isLoading) return;
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final rawNonce = _createNonce(32);
+      final nonce = _sha256ofString(rawNonce);
+
+      final credential = await SignInWithApple.getAppleIDCredential(
+        scopes: [
+          AppleIDAuthorizationScopes.email,
+          AppleIDAuthorizationScopes.fullName,
+        ],
+        nonce: nonce,
+      );
+
+      final oauthCredential = OAuthProvider("apple.com").credential(
+        idToken: credential.identityToken,
+        rawNonce: rawNonce,
+      );
+
+      await FirebaseAuth.instance.signInWithCredential(oauthCredential);
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Apple ilə giriş zamanı xəta baş verdi'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -358,6 +418,24 @@ class _AuthScreenState extends State<AuthScreen> {
                   ),
                   label: const Text('Google ilə daxil ol'),
                 ),
+                const SizedBox(height: 12),
+                if (Platform.isIOS)
+                  OutlinedButton.icon(
+                    onPressed: _isLoading ? null : _handleAppleSignIn,
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      side: const BorderSide(color: Colors.grey),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      backgroundColor: Colors.black,
+                    ),
+                    icon: const Icon(Icons.apple, color: Colors.white),
+                    label: const Text(
+                      'Apple ilə daxil ol',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ),
               ],
             ),
           ),

@@ -1,5 +1,6 @@
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'dart:io';
 
 class NotificationService {
   final FirebaseMessaging _messaging = FirebaseMessaging.instance;
@@ -8,20 +9,39 @@ class NotificationService {
 
   Future<void> initialize() async {
     // İzinleri iste
-    await _messaging.requestPermission(
+    NotificationSettings settings = await _messaging.requestPermission(
       alert: true,
       badge: true,
       sound: true,
+      provisional: false,
     );
 
+    print('Kullanıcı izni durumu: ${settings.authorizationStatus}');
+
     // FCM token al
-    String? token = await _messaging.getToken();
-    print('FCM Token: $token'); // Bu token'ı backend'e göndermeniz gerekecek
+    if (Platform.isIOS) {
+      // iOS için önce APNS token'ı al
+      String? apnsToken = await _messaging.getAPNSToken();
+      print('APNS Token: $apnsToken');
+
+      if (apnsToken != null) {
+        String? fcmToken = await _messaging.getToken();
+        print('iOS FCM Token: $fcmToken');
+      }
+    } else {
+      // Android için direkt FCM token'ı al
+      String? fcmToken = await _messaging.getToken();
+      print('Android FCM Token: $fcmToken');
+    }
 
     // Local notifications için init
     const initializationSettingsAndroid =
         AndroidInitializationSettings('@mipmap/ic_launcher');
-    const initializationSettingsIOS = DarwinInitializationSettings();
+    const initializationSettingsIOS = DarwinInitializationSettings(
+      requestAlertPermission: true,
+      requestBadgePermission: true,
+      requestSoundPermission: true,
+    );
     const initializationSettings = InitializationSettings(
       android: initializationSettingsAndroid,
       iOS: initializationSettingsIOS,
@@ -31,11 +51,13 @@ class NotificationService {
       initializationSettings,
       onDidReceiveNotificationResponse: (details) {
         // Bildirime tıklandığında yapılacak işlemler
+        print('Bildirime tıklandı: ${details.payload}');
       },
     );
 
     // Foreground mesajları için
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+      print('Foreground mesajı alındı');
       _showNotification(message);
     });
 
