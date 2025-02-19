@@ -6,6 +6,7 @@ import 'package:crypto/crypto.dart';
 import 'dart:convert';
 import 'dart:math';
 import 'dart:io';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -23,6 +24,36 @@ class _AuthScreenState extends State<AuthScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _nameController = TextEditingController();
+
+  Future<void> _saveUserToFirestore(User user, {String? displayName}) async {
+    try {
+      print('Firestore kayıt başlıyor...');
+      final userDoc =
+          FirebaseFirestore.instance.collection('Users').doc(user.uid);
+
+      final userData = {
+        'uid': user.uid,
+        'email': user.email,
+        'displayName': displayName ?? user.displayName ?? 'İstifadəçi',
+        'createdAt': FieldValue.serverTimestamp(),
+        'lastLogin': FieldValue.serverTimestamp(),
+        'photoURL': user.photoURL,
+      };
+
+      print('Kaydedilecek veri: $userData');
+      await userDoc.set(userData);
+      print('Firestore kayıt başarılı!');
+    } catch (e) {
+      print('Firestore kayıt hatası: $e');
+      // Hata durumunda kullanıcıya bilgi ver
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Kullanıcı bilgileri kaydedilirken hata oluştu: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
 
   Future<void> _handleGoogleSignIn() async {
     if (_isLoading) return;
@@ -50,7 +81,13 @@ class _AuthScreenState extends State<AuthScreen> {
         idToken: googleAuth.idToken,
       );
 
-      await FirebaseAuth.instance.signInWithCredential(credential);
+      final userCredential =
+          await FirebaseAuth.instance.signInWithCredential(credential);
+
+      // Kullanıcıyı Firestore'a kaydet
+      if (userCredential.user != null) {
+        await _saveUserToFirestore(userCredential.user!);
+      }
     } catch (e) {
       String message = 'Google ilə giriş zamanı xəta baş verdi';
       if (e is FirebaseAuthException) {
@@ -87,10 +124,21 @@ class _AuthScreenState extends State<AuthScreen> {
 
     try {
       if (_isLogin) {
-        await FirebaseAuth.instance.signInWithEmailAndPassword(
+        final userCredential =
+            await FirebaseAuth.instance.signInWithEmailAndPassword(
           email: _emailController.text.trim(),
           password: _passwordController.text,
         );
+
+        // Giriş yapan kullanıcının son giriş zamanını güncelle
+        if (userCredential.user != null) {
+          await FirebaseFirestore.instance
+              .collection('Users')
+              .doc(userCredential.user!.uid)
+              .update({
+            'lastLogin': FieldValue.serverTimestamp(),
+          });
+        }
       } else {
         final userCredential =
             await FirebaseAuth.instance.createUserWithEmailAndPassword(
@@ -100,6 +148,14 @@ class _AuthScreenState extends State<AuthScreen> {
 
         await userCredential.user
             ?.updateDisplayName(_nameController.text.trim());
+
+        // Yeni kullanıcıyı Firestore'a kaydet
+        if (userCredential.user != null) {
+          await _saveUserToFirestore(
+            userCredential.user!,
+            displayName: _nameController.text.trim(),
+          );
+        }
       }
     } on FirebaseAuthException catch (e) {
       String message;
