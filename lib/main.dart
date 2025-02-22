@@ -7,6 +7,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:globroker/screens/auth_screen.dart';
 import 'package:globroker/services/notification_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -14,6 +15,16 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  // FCM token'ı al ve kaydet
+  FirebaseMessaging.instance.onTokenRefresh.listen((token) {
+    _saveFcmToken(token);
+  });
+
+  final token = await FirebaseMessaging.instance.getToken();
+  if (token != null) {
+    await _saveFcmToken(token);
+  }
 
   // Firestore ayarları
   FirebaseFirestore.instance.settings = const Settings(
@@ -26,6 +37,16 @@ void main() async {
   await notificationService.initialize();
 
   runApp(const GloBroker());
+}
+
+Future<void> _saveFcmToken(String token) async {
+  final user = FirebaseAuth.instance.currentUser;
+  if (user != null) {
+    await FirebaseFirestore.instance
+        .collection('Users')
+        .doc(user.uid)
+        .update({'fcmToken': token});
+  }
 }
 
 class GloBroker extends StatefulWidget {

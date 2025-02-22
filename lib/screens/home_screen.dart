@@ -13,6 +13,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:globroker/screens/users_screen.dart';
 import 'package:globroker/screens/chats_list_screen.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -69,13 +70,42 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.message, color: Colors.black),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (context) => const ChatsListScreen()),
+          StreamBuilder<int>(
+            stream: _getUnreadChatsCount(),
+            builder: (context, snapshot) {
+              return Stack(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.message, color: Colors.black),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => const ChatsListScreen()),
+                      );
+                    },
+                  ),
+                  if (snapshot.hasData && snapshot.data! > 0)
+                    Positioned(
+                      right: 5,
+                      top: 5,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: const BoxDecoration(
+                          color: Colors.blue,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Text(
+                          snapshot.data.toString(),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
               );
             },
           ),
@@ -436,5 +466,22 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
     );
+  }
+
+  Stream<int> _getUnreadChatsCount() {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) return Stream.value(0);
+
+    return FirebaseFirestore.instance
+        .collection('Messages')
+        .where('receiverId', isEqualTo: currentUser.uid)
+        .where('isRead', isEqualTo: false)
+        .snapshots()
+        .map((snapshot) {
+      // Benzersiz gönderici sayısını hesapla
+      final senderIds =
+          snapshot.docs.map((doc) => doc.data()['senderId'] as String).toSet();
+      return senderIds.length;
+    });
   }
 }

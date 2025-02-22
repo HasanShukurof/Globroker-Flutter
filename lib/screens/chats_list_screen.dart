@@ -7,6 +7,64 @@ import 'package:globroker/screens/users_screen.dart';
 class ChatsListScreen extends StatelessWidget {
   const ChatsListScreen({super.key});
 
+  // Son mesajı ve okunmamış mesaj sayısını getiren yardımcı fonksiyon
+  Future<Map<String, dynamic>> _getMessageInfo(
+      String userId, String currentUserId) async {
+    // İki kullanıcı arasındaki son mesajı al
+    final messages = await FirebaseFirestore.instance
+        .collection('Messages')
+        .where(Filter.and(
+          Filter.or(
+            Filter('senderId', isEqualTo: userId),
+            Filter('senderId', isEqualTo: currentUserId),
+          ),
+          Filter.or(
+            Filter('receiverId', isEqualTo: userId),
+            Filter('receiverId', isEqualTo: currentUserId),
+          ),
+        ))
+        .orderBy('timestamp', descending: true)
+        .limit(1)
+        .get();
+
+    String lastMessage = '';
+    String lastMessageSender = '';
+    int unreadCount = 0;
+    DateTime? timestamp;
+
+    if (messages.docs.isNotEmpty) {
+      final lastMessageData = messages.docs.first.data();
+      // Sadece bu iki kullanıcı arasındaki mesajı kontrol et
+      if ((lastMessageData['senderId'] == userId &&
+              lastMessageData['receiverId'] == currentUserId) ||
+          (lastMessageData['senderId'] == currentUserId &&
+              lastMessageData['receiverId'] == userId)) {
+        lastMessage = lastMessageData['content'] as String;
+        lastMessageSender = lastMessageData['senderId'] as String;
+        lastMessage = lastMessageSender == currentUserId
+            ? "Siz: $lastMessage"
+            : lastMessage;
+        timestamp = (lastMessageData['timestamp'] as Timestamp).toDate();
+      }
+
+      // Okunmamış mesaj sayısı sorgusu aynı kalacak
+      final unreadMessages = await FirebaseFirestore.instance
+          .collection('Messages')
+          .where('receiverId', isEqualTo: currentUserId)
+          .where('senderId', isEqualTo: userId)
+          .where('isRead', isEqualTo: false)
+          .get();
+
+      unreadCount = unreadMessages.docs.length;
+    }
+
+    return {
+      'lastMessage': lastMessage,
+      'unreadCount': unreadCount,
+      'timestamp': timestamp,
+    };
+  }
+
   @override
   Widget build(BuildContext context) {
     final currentUser = FirebaseAuth.instance.currentUser!;
@@ -20,7 +78,10 @@ class ChatsListScreen extends StatelessWidget {
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
             .collection('Messages')
-            .where('senderId', isEqualTo: currentUser.uid)
+            .where(Filter.or(
+              Filter('senderId', isEqualTo: currentUser.uid),
+              Filter('receiverId', isEqualTo: currentUser.uid),
+            ))
             .orderBy('timestamp', descending: true)
             .snapshots(),
         builder: (context, snapshot) {
@@ -32,7 +93,6 @@ class ChatsListScreen extends StatelessWidget {
             return const Center(child: CircularProgressIndicator());
           }
 
-          // Benzersiz kullanıcı ID'lerini topla
           final Set<String> chatUserIds = {};
           for (var doc in snapshot.data!.docs) {
             final data = doc.data() as Map<String, dynamic>;
@@ -55,41 +115,93 @@ class ChatsListScreen extends StatelessWidget {
                 .where(FieldPath.documentId, whereIn: chatUserIds.toList())
                 .snapshots(),
             builder: (context, userSnapshot) {
-              if (userSnapshot.hasError) {
-                return Center(child: Text('Xəta: ${userSnapshot.error}'));
+              if (!userSnapshot.hasData) {
+                return const Center(
+                  child: CircularProgressIndicator(),
+                );
               }
 
-              if (userSnapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              }
+              return FutureBuilder<List<QueryDocumentSnapshot>>(
+                future: _sortUsersByLastMessage(
+                    userSnapshot.data!.docs, currentUser.uid),
+                builder: (context, sortedSnapshot) {
+                  if (!sortedSnapshot.hasData) {
+                    return const Center(
+                      child: CircularProgressIndicator(),
+                    );
+                  }
 
-              final users = userSnapshot.data!.docs;
+                  return ListView.builder(
+                    itemCount: sortedSnapshot.data!.length,
+                    itemBuilder: (context, index) {
+                      final userData = sortedSnapshot.data![index].data()
+                          as Map<String, dynamic>;
+                      final userId = sortedSnapshot.data![index].id;
 
-              return ListView.builder(
-                itemCount: users.length,
-                itemBuilder: (context, index) {
-                  final userData = users[index].data() as Map<String, dynamic>;
-                  return ListTile(
-                    leading: CircleAvatar(
-                      backgroundImage: userData['photoURL'] != null
-                          ? NetworkImage(userData['photoURL'])
-                          : null,
-                      child: userData['photoURL'] == null
-                          ? Text(userData['displayName'][0].toUpperCase())
-                          : null,
-                    ),
-                    title: Text(userData['displayName'] ?? 'İstifadəçi'),
-                    subtitle: const Text(
-                        'Son mesaj...'), // İsteğe bağlı: son mesajı göster
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => ChatScreen(
-                            receiverId: users[index].id,
-                            receiverName: userData['displayName'],
-                          ),
-                        ),
+                      return FutureBuilder<Map<String, dynamic>>(
+                        future: _getMessageInfo(userId, currentUser.uid),
+                        builder: (context, messageSnapshot) {
+                          if (!messageSnapshot.hasData ||
+                              messageSnapshot.data!['timestamp'] == null) {
+                            return const SizedBox.shrink();
+                          }
+
+                          final unreadCount =
+                              messageSnapshot.data?['unreadCount'] ?? 0;
+                          final lastMessage =
+                              messageSnapshot.data?['lastMessage'] ?? '';
+
+                          return ListTile(
+                            leading: CircleAvatar(
+                              backgroundImage: userData['photoURL'] != null
+                                  ? NetworkImage(userData['photoURL'])
+                                  : null,
+                              child: userData['photoURL'] == null
+                                  ? Text(
+                                      userData['displayName'][0].toUpperCase())
+                                  : null,
+                            ),
+                            title: Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                      userData['displayName'] ?? 'İstifadəçi'),
+                                ),
+                                if (unreadCount > 0)
+                                  Container(
+                                    padding: const EdgeInsets.all(6),
+                                    decoration: const BoxDecoration(
+                                      color: Colors.blue,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Text(
+                                      unreadCount.toString(),
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            subtitle: Text(
+                              lastMessage,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => ChatScreen(
+                                    receiverId: userId,
+                                    receiverName: userData['displayName'],
+                                  ),
+                                ),
+                              );
+                            },
+                          );
+                        },
                       );
                     },
                   );
@@ -110,5 +222,25 @@ class ChatsListScreen extends StatelessWidget {
         child: const Icon(Icons.message),
       ),
     );
+  }
+
+  Future<List<QueryDocumentSnapshot>> _sortUsersByLastMessage(
+      List<QueryDocumentSnapshot> users, String currentUserId) async {
+    Map<String, DateTime?> userTimestamps = {};
+    for (var user in users) {
+      final info = await _getMessageInfo(user.id, currentUserId);
+      userTimestamps[user.id] = info['timestamp'] as DateTime?;
+    }
+
+    List<QueryDocumentSnapshot> sortedUsers = List.from(users);
+    sortedUsers.sort((a, b) {
+      final aTime = userTimestamps[a.id];
+      final bTime = userTimestamps[b.id];
+      if (aTime == null) return 1;
+      if (bTime == null) return -1;
+      return bTime.compareTo(aTime);
+    });
+
+    return sortedUsers;
   }
 }

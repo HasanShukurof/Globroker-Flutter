@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:globroker/models/message.dart';
+import 'package:globroker/services/notification_service.dart';
 
 class ChatScreen extends StatefulWidget {
   final String receiverId;
@@ -20,6 +21,31 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> {
   final _messageController = TextEditingController();
   final _currentUser = FirebaseAuth.instance.currentUser!;
+
+  // Mesajları okundu olarak işaretle
+  void _markMessagesAsRead() async {
+    final messagesQuery = await FirebaseFirestore.instance
+        .collection('Messages')
+        .where('senderId', isEqualTo: widget.receiverId)
+        .where('receiverId', isEqualTo: _currentUser.uid)
+        .where('isRead', isEqualTo: false)
+        .get();
+
+    for (var doc in messagesQuery.docs) {
+      await doc.reference.update({'isRead': true});
+    }
+
+    // Badge sayısını güncelle
+    final notificationService = NotificationService();
+    await notificationService.updateBadgeCount(_currentUser.uid);
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    // Ekran açıldığında mesajları okundu olarak işaretle
+    _markMessagesAsRead();
+  }
 
   void _sendMessage() async {
     if (_messageController.text.trim().isEmpty) return;
