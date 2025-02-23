@@ -12,7 +12,16 @@ import '../screens/chat_screen.dart';
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
-  print('Background mesajı alındı: ${message.notification?.title}');
+
+  // Background bildirimlerini göstermek için NotificationService'i başlat
+  final notificationService = NotificationService();
+  await notificationService._setupNotificationChannels();
+
+  await notificationService._showNotification(
+    title: message.notification?.title ?? 'Yeni Mesaj',
+    body: message.notification?.body ?? '',
+    payload: '${message.data['senderId']},${message.data['senderName']}',
+  );
 }
 
 class NotificationService {
@@ -39,14 +48,14 @@ class NotificationService {
   }
 
   Future<void> _requestPermissions() async {
-    if (Platform.isIOS) {
-      await _messaging.requestPermission(
-        alert: true,
-        badge: true,
-        sound: true,
-        provisional: false,
-      );
+    await _messaging.requestPermission(
+      alert: true,
+      badge: true,
+      sound: true,
+      provisional: false,
+    );
 
+    if (Platform.isIOS) {
       await _localNotifications
           .resolvePlatformSpecificImplementation<
               IOSFlutterLocalNotificationsPlugin>()
@@ -94,15 +103,13 @@ class NotificationService {
       print('BILDIRIM: İçerik: ${message.notification?.body}');
       print('BILDIRIM: Data: ${message.data}');
 
-      try {
+      // Her mesaj için bildirim göster
+      if (message.notification != null) {
         await _showNotification(
-          title: message.notification?.title ?? '',
-          body: message.notification?.body ?? '',
-          payload: message.data.toString(),
+          title: message.notification!.title ?? 'Yeni Mesaj',
+          body: message.notification!.body ?? '',
+          payload: '${message.data['senderId']},${message.data['senderName']}',
         );
-        print('BILDIRIM: Bildirim başarıyla gösterildi');
-      } catch (e) {
-        print('BILDIRIM HATASI: Bildirim gösterilirken hata: $e');
       }
     });
 
