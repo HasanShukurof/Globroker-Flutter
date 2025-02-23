@@ -1,65 +1,86 @@
 /* eslint-disable */
-const functions = require('firebase-functions');
+const { onRequest } = require('firebase-functions/v2/https');
+const { onDocumentCreated } = require('firebase-functions/v2/firestore');
 const admin = require('firebase-admin');
 
 admin.initializeApp();
 
-// HTTP endpoint example
-exports.helloWorld = functions.https.onRequest((request, response) => {
+// HTTP endpoint
+exports.helloWorld = onRequest((request, response) => {
     console.log('Hello logs!');
     response.json({ message: 'Hello from Firebase!' });
 });
 
-// Firestore trigger example
-exports.onUserCreated = functions.firestore
-    .document('users/{userId}')
-    .onCreate(async (snap, context) => {
-        const newUser = snap.data();
-        console.log('New user created:', newUser);
-    });
+// User created trigger
+exports.onUserCreated = onDocumentCreated('users/{userId}', (event) => {
+    const newUser = event.data.data();
+    console.log('New user created:', newUser);
+});
 
-exports.sendNotification = functions.firestore
-    .document('Messages/{messageId}')
-    .onCreate(async (snap, context) => {
-        const message = snap.data();
+// Message notification trigger
+exports.sendNotification = onDocumentCreated('Messages/{messageId}', async (event) => {
+    const firestore = admin.firestore();
 
-        // Alıcının token'ını al
-        const receiverDoc = await admin.firestore()
-            .collection('Users')
-            .doc(message.receiverId)
-            .get();
+    console.log('YENİ MESAJ TETİKLENDİ:', event.params.messageId);
+    const message = event.data.data();
+    console.log('MESAJ DATA:', message);
 
-        const receiverData = receiverDoc.data();
-        const token = receiverData && receiverData.fcmToken;
-
-        if (!token) return;
-
-        // Gönderici bilgilerini al
-        const senderDoc = await admin.firestore()
+    try {
+        const senderDoc = await firestore
             .collection('Users')
             .doc(message.senderId)
             .get();
 
-        const senderData = senderDoc.data();
-        const senderName = senderData && senderData.displayName || 'Birisi';
+        const senderName = senderDoc.exists ? senderDoc.data().displayName : 'Birisi';
 
-        // Bildirimi gönder
-        const payload = {
+        const receiverDoc = await firestore
+            .collection('Users')
+            .doc(message.receiverId)
+            .get();
+
+        if (!receiverDoc.exists) {
+            console.error('HATA: Alıcı bulunamadı');
+            return;
+        }
+
+        const token = receiverDoc.data().fcmToken;
+        if (!token) {
+            console.error('HATA: FCM token bulunamadı');
+            return;
+        }
+
+        const notification = {
+            token: token,
             notification: {
                 title: 'Yeni mesaj',
                 body: `${senderName}: ${message.content}`,
-                clickAction: 'FLUTTER_NOTIFICATION_CLICK',
+            },
+            android: {
+                notification: {
+                    clickAction: 'FLUTTER_NOTIFICATION_CLICK',
+                    channelId: 'high_importance_channel'
+                }
+            },
+            apns: {
+                payload: {
+                    aps: {
+                        sound: 'default',
+                        badge: 1
+                    }
+                }
             },
             data: {
                 senderId: message.senderId,
                 senderName: senderName,
-                type: 'message',
+                type: 'message'
             }
         };
 
-        try {
-            await admin.messaging().sendToDevice(token, payload);
-        } catch (error) {
-            console.error('Error sending notification:', error);
-        }
-    });
+        console.log('BİLDİRİM GÖNDERİLİYOR:', notification);
+        const response = await admin.messaging().send(notification);
+        console.log('BİLDİRİM BAŞARILI:', response);
+
+    } catch (error) {
+        console.error('BİLDİRİM HATASI:', error.stack);
+    }
+});

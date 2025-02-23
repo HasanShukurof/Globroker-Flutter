@@ -16,50 +16,28 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  // FCM token'ı al ve kaydet
-  FirebaseMessaging.instance.onTokenRefresh.listen((token) {
-    _saveFcmToken(token);
-  });
-
-  final token = await FirebaseMessaging.instance.getToken();
-  if (token != null) {
-    await _saveFcmToken(token);
-  }
-
-  // Firestore ayarları
-  FirebaseFirestore.instance.settings = const Settings(
-    persistenceEnabled: true,
-    cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
-  );
-
-  // Notification servisini başlat
   final notificationService = NotificationService();
   await notificationService.initialize();
 
-  runApp(const GloBroker());
+  print('FCM TOKEN: ${await FirebaseMessaging.instance.getToken()}');
+
+  runApp(GloBroker(
+    navigatorKey: notificationService.navigatorKey,
+  ));
 }
 
-Future<void> _saveFcmToken(String token) async {
-  final user = FirebaseAuth.instance.currentUser;
-  if (user != null) {
-    await FirebaseFirestore.instance
-        .collection('Users')
-        .doc(user.uid)
-        .update({'fcmToken': token});
-  }
-}
+class GloBroker extends StatelessWidget {
+  final GlobalKey<NavigatorState> navigatorKey;
 
-class GloBroker extends StatefulWidget {
-  const GloBroker({super.key});
+  const GloBroker({
+    super.key,
+    required this.navigatorKey,
+  });
 
-  @override
-  State<GloBroker> createState() => _GloBrokerState();
-}
-
-class _GloBrokerState extends State<GloBroker> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: navigatorKey,
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,

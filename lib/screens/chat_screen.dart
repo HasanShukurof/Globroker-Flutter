@@ -50,19 +50,27 @@ class _ChatScreenState extends State<ChatScreen> {
   void _sendMessage() async {
     if (_messageController.text.trim().isEmpty) return;
 
-    final message = Message(
-      senderId: _currentUser.uid,
-      receiverId: widget.receiverId,
-      content: _messageController.text.trim(),
-      timestamp: DateTime.now(),
-    );
+    try {
+      print('MESAJ: Mesaj gönderiliyor...');
 
-    // Mesajı Firestore'a kaydet
-    await FirebaseFirestore.instance
-        .collection('Messages')
-        .add(message.toMap());
+      final message = Message(
+        senderId: _currentUser.uid,
+        receiverId: widget.receiverId,
+        content: _messageController.text.trim(),
+        timestamp: DateTime.now(),
+      );
 
-    _messageController.clear();
+      await FirebaseFirestore.instance
+          .collection('Messages')
+          .add(message.toMap());
+
+      print('MESAJ: Mesaj başarıyla gönderildi');
+      print('MESAJ DATA: ${message.toMap()}');
+
+      _messageController.clear();
+    } catch (e) {
+      print('MESAJ HATASI: $e');
+    }
   }
 
   @override
