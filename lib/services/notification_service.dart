@@ -35,6 +35,9 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   final notificationService = NotificationService();
   await notificationService._setupNotificationChannels();
 
+  // Bildirimi Firestore'a kaydet
+  await notificationService._saveNotificationToFirestore(message);
+
   await notificationService._showNotification(
     title: message.notification?.title ?? 'Yeni Mesaj',
     body: message.notification?.body ?? '',
@@ -159,6 +162,9 @@ class NotificationService {
       print('BILDIRIM: İçerik: ${message.notification?.body}');
       print('BILDIRIM: Data: ${message.data}');
 
+      // Bildirimi Firestore'a kaydet
+      await _saveNotificationToFirestore(message);
+
       // Her mesaj için bildirim göster
       if (message.notification != null) {
         await _showNotification(
@@ -267,6 +273,29 @@ class NotificationService {
     }
   }
 
+  // Bildirimi Firestore'a kaydetme
+  Future<void> _saveNotificationToFirestore(RemoteMessage message) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      try {
+        await FirebaseFirestore.instance
+            .collection('Users')
+            .doc(user.uid)
+            .collection('Notifications')
+            .add({
+          'title': message.notification?.title ?? 'Yeni Bildirim',
+          'body': message.notification?.body ?? '',
+          'timestamp': FieldValue.serverTimestamp(),
+          'data': message.data,
+          'isRead': false,
+        });
+        print('BİLDİRİM: Firestore\'a kaydedildi');
+      } catch (e) {
+        print('BİLDİRİM KAYIT HATASI: $e');
+      }
+    }
+  }
+
   Future<void> _showNotification({
     required String title,
     required String body,
@@ -314,5 +343,46 @@ class NotificationService {
 
     // Badge güncelleme kodunu kaldır
     // await FlutterAppBadger.updateBadgeCount(senderIds.length);
+  }
+
+  // Bildirimleri okundu olarak işaretleme
+  Future<void> markNotificationAsRead(String notificationId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      try {
+        await FirebaseFirestore.instance
+            .collection('Users')
+            .doc(user.uid)
+            .collection('Notifications')
+            .doc(notificationId)
+            .update({'isRead': true});
+      } catch (e) {
+        print('BİLDİRİM GÜNCELLEME HATASI: $e');
+      }
+    }
+  }
+
+  // Tüm bildirimleri okundu olarak işaretleme
+  Future<void> markAllNotificationsAsRead() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      try {
+        final batch = FirebaseFirestore.instance.batch();
+        final notifications = await FirebaseFirestore.instance
+            .collection('Users')
+            .doc(user.uid)
+            .collection('Notifications')
+            .where('isRead', isEqualTo: false)
+            .get();
+
+        for (var doc in notifications.docs) {
+          batch.update(doc.reference, {'isRead': true});
+        }
+
+        await batch.commit();
+      } catch (e) {
+        print('TÜM BİLDİRİMLERİ GÜNCELLEME HATASI: $e');
+      }
+    }
   }
 }
