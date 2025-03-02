@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:globroker/screens/chat_screen.dart';
 import 'package:globroker/screens/users_screen.dart';
+import 'package:globroker/screens/profile_image_screen.dart';
 
 class ChatsListScreen extends StatelessWidget {
   const ChatsListScreen({super.key});
@@ -194,14 +195,22 @@ class ChatsListScreen extends StatelessWidget {
                           }
 
                           return ListTile(
-                            leading: CircleAvatar(
-                              backgroundImage: userData['photoURL'] != null
-                                  ? NetworkImage(userData['photoURL'])
+                            leading: GestureDetector(
+                              onTap: userData['photoURL'] != null
+                                  ? () => _showProfileImage(
+                                      context,
+                                      userData['photoURL'],
+                                      userData['displayName'])
                                   : null,
-                              child: userData['photoURL'] == null
-                                  ? Text(
-                                      userData['displayName'][0].toUpperCase())
-                                  : null,
+                              child: CircleAvatar(
+                                backgroundImage: userData['photoURL'] != null
+                                    ? NetworkImage(userData['photoURL'])
+                                    : null,
+                                child: userData['photoURL'] == null
+                                    ? Text(userData['displayName'][0]
+                                        .toUpperCase())
+                                    : null,
+                              ),
                             ),
                             title: Row(
                               children: [
@@ -294,5 +303,19 @@ class ChatsListScreen extends StatelessWidget {
     });
 
     return sortedUsers;
+  }
+
+  // Profil resmini büyük göster
+  void _showProfileImage(
+      BuildContext context, String imageUrl, String userName) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ProfileImageScreen(
+          imageUrl: imageUrl,
+          userName: userName,
+        ),
+      ),
+    );
   }
 }

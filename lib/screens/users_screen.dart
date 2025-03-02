@@ -2,9 +2,24 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:globroker/screens/chat_screen.dart';
+import 'package:globroker/screens/profile_image_screen.dart';
 
 class UsersScreen extends StatelessWidget {
   const UsersScreen({super.key});
+
+  // Profil resmini büyük göster
+  void _showProfileImage(
+      BuildContext context, String imageUrl, String userName) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ProfileImageScreen(
+          imageUrl: imageUrl,
+          userName: userName,
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -37,13 +52,19 @@ class UsersScreen extends StatelessWidget {
             itemBuilder: (context, index) {
               final user = users[index];
               return ListTile(
-                leading: CircleAvatar(
-                  backgroundImage: user['photoURL'] != null
-                      ? NetworkImage(user['photoURL'])
+                leading: GestureDetector(
+                  onTap: user['photoURL'] != null
+                      ? () => _showProfileImage(
+                          context, user['photoURL'], user['displayName'])
                       : null,
-                  child: user['photoURL'] == null
-                      ? Text(user['displayName'][0].toUpperCase())
-                      : null,
+                  child: CircleAvatar(
+                    backgroundImage: user['photoURL'] != null
+                        ? NetworkImage(user['photoURL'])
+                        : null,
+                    child: user['photoURL'] == null
+                        ? Text(user['displayName'][0].toUpperCase())
+                        : null,
+                  ),
                 ),
                 title: Text(user['displayName'] ?? 'İstifadəçi'),
                 onTap: () {

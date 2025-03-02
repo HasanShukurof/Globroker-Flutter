@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:globroker/models/message.dart';
 import 'package:globroker/services/notification_service.dart';
+import 'package:globroker/screens/profile_image_screen.dart';
 
 class ChatScreen extends StatefulWidget {
   final String receiverId;
@@ -21,6 +22,7 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> {
   final _messageController = TextEditingController();
   final _currentUser = FirebaseAuth.instance.currentUser!;
+  String? _receiverPhotoURL;
 
   // Mesajları okundu olarak işaretle
   void _markMessagesAsRead() async {
@@ -40,11 +42,31 @@ class _ChatScreenState extends State<ChatScreen> {
     await notificationService.updateBadgeCount(_currentUser.uid);
   }
 
+  // Alıcının profil bilgilerini getir
+  Future<void> _getReceiverInfo() async {
+    try {
+      final receiverDoc = await FirebaseFirestore.instance
+          .collection('Users')
+          .doc(widget.receiverId)
+          .get();
+
+      if (receiverDoc.exists) {
+        setState(() {
+          _receiverPhotoURL = receiverDoc.data()?['photoURL'];
+        });
+      }
+    } catch (e) {
+      print('Alıcı bilgileri alınırken hata: $e');
+    }
+  }
+
   @override
   void initState() {
     super.initState();
     // Ekran açıldığında mesajları okundu olarak işaretle
     _markMessagesAsRead();
+    // Alıcının profil bilgilerini getir
+    _getReceiverInfo();
   }
 
   void _sendMessage() async {
@@ -83,11 +105,42 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
+  // Profil resmini büyük göster
+  void _showProfileImage() {
+    if (_receiverPhotoURL == null) return;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ProfileImageScreen(
+          imageUrl: _receiverPhotoURL!,
+          userName: widget.receiverName,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.receiverName),
+        title: Row(
+          children: [
+            GestureDetector(
+              onTap: _receiverPhotoURL != null ? _showProfileImage : null,
+              child: CircleAvatar(
+                backgroundImage: _receiverPhotoURL != null
+                    ? NetworkImage(_receiverPhotoURL!)
+                    : null,
+                child: _receiverPhotoURL == null
+                    ? Text(widget.receiverName[0].toUpperCase())
+                    : null,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(widget.receiverName),
+          ],
+        ),
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
       ),
