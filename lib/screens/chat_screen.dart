@@ -53,10 +53,15 @@ class _ChatScreenState extends State<ChatScreen> {
     try {
       print('MESAJ: Mesaj gönderiliyor...');
 
+      // Mesaj gönderirken bir kilitleme mekanizması ekleyelim
+      final messageText = _messageController.text.trim();
+      _messageController
+          .clear(); // Hemen temizle ki kullanıcı tekrar gönderemesin
+
       final message = Message(
         senderId: _currentUser.uid,
         receiverId: widget.receiverId,
-        content: _messageController.text.trim(),
+        content: messageText,
         timestamp: DateTime.now(),
       );
 
@@ -66,10 +71,15 @@ class _ChatScreenState extends State<ChatScreen> {
 
       print('MESAJ: Mesaj başarıyla gönderildi');
       print('MESAJ DATA: ${message.toMap()}');
-
-      _messageController.clear();
     } catch (e) {
       print('MESAJ HATASI: $e');
+      // Hata durumunda kullanıcıya bildir
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Mesaj göndərilmədi: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 

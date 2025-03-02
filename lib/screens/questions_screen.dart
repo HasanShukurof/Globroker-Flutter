@@ -29,7 +29,7 @@ class QuestionsScreen extends StatelessWidget {
         children: const [
           Card(
             child: ExpansionTile(
-              shape: const Border(),
+              shape: Border(),
               title: Text(
                 'Avans-gömrük ödənişləri nədən formalaşır?',
                 style: TextStyle(
@@ -51,7 +51,7 @@ class QuestionsScreen extends StatelessWidget {
           SizedBox(height: 8),
           Card(
             child: ExpansionTile(
-              shape: const Border(),
+              shape: Border(),
               title: Text(
                 'Avans-gömrük ödənişləri üzrə köçürülmüş məbləği bütün gömrük idarələrində istifadə etmək mümkündürmü?',
                 style: TextStyle(
@@ -73,7 +73,7 @@ class QuestionsScreen extends StatelessWidget {
           SizedBox(height: 8),
           Card(
             child: ExpansionTile(
-              shape: const Border(),
+              shape: Border(),
               title: Text(
                 'Əlavə dəyər vergisi üzrə yaranmış borcun avans məbləğdən deyil, ƏDV depozit hesabından daxil olan vəsaitdən silinməsi üçün hansı addımlar atılmalıdır?',
                 style: TextStyle(
@@ -95,7 +95,7 @@ class QuestionsScreen extends StatelessWidget {
           SizedBox(height: 8),
           Card(
             child: ExpansionTile(
-              shape: const Border(),
+              shape: Border(),
               title: Text(
                 'Eyni zamanda bir neçə gömrük bəyannaməsi təqdim edilmişdirsə, ilkin olaraq şəxsə zəruri olan bəyannamənin rəsmiləşdirilməsi üçün hansı addımlar atılmalıdır?',
                 style: TextStyle(
@@ -117,7 +117,7 @@ class QuestionsScreen extends StatelessWidget {
           SizedBox(height: 8),
           Card(
             child: ExpansionTile(
-              shape: const Border(),
+              shape: Border(),
               title: Text(
                 'Şəxsin balansının artırılması məqsədilə köçürdüyü vəsait elektron hesab səhifəsində hansı müddətdə öz əksini tapır?',
                 style: TextStyle(

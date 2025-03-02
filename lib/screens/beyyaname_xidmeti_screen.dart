@@ -102,7 +102,7 @@ class BeyannameXidmetiScreen extends StatelessWidget {
                   _buildOperationItem("Xaricdə emal"),
                 ],
               ),
-              SizedBox(
+              const SizedBox(
                 height: 70,
               ),
             ],

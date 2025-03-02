@@ -6,7 +6,6 @@ import 'firebase_options.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:globroker/screens/auth_screen.dart';
 import 'package:globroker/services/notification_service.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 
 void main() async {

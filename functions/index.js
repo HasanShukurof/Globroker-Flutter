@@ -26,31 +26,47 @@ exports.sendNotification = onDocumentCreated('Messages/{messageId}', async (even
     console.log('MESAJ DATA:', message);
 
     try {
+        // Gönderici bilgilerini al
         const senderDoc = await firestore
             .collection('Users')
             .doc(message.senderId)
             .get();
 
+        console.log('GÖNDEREN BİLGİLERİ:', senderDoc.exists ? senderDoc.data() : 'Bulunamadı');
         const senderName = senderDoc.exists ? senderDoc.data().displayName : 'Birisi';
 
+        // Alıcı bilgilerini al
         const receiverDoc = await firestore
             .collection('Users')
             .doc(message.receiverId)
             .get();
+
+        console.log('ALICI BİLGİLERİ:', receiverDoc.exists ? receiverDoc.data() : 'Bulunamadı');
 
         if (!receiverDoc.exists) {
             console.error('HATA: Alıcı bulunamadı');
             return;
         }
 
-        const token = receiverDoc.data().fcmToken;
-        if (!token) {
+        // FCM token kontrolü
+        const receiverData = receiverDoc.data();
+        console.log('ALICI FCM TOKEN:', receiverData.fcmToken);
+
+        if (!receiverData.fcmToken) {
             console.error('HATA: FCM token bulunamadı');
+
+            // Token yoksa, kullanıcı koleksiyonundaki tüm FCM tokenları listele
+            const usersSnapshot = await firestore.collection('Users').get();
+            console.log('TÜM KULLANICILAR VE FCM TOKENLARI:');
+            usersSnapshot.docs.forEach(doc => {
+                console.log(`Kullanıcı ID: ${doc.id}, FCM Token: ${doc.data().fcmToken || 'Yok'}`);
+            });
+
             return;
         }
 
         const notification = {
-            token: token,
+            token: receiverData.fcmToken,
             notification: {
                 title: 'Yeni mesaj',
                 body: `${senderName}: ${message.content}`,

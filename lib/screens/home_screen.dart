@@ -1,5 +1,3 @@
-import 'dart:math';
-
 import 'package:flutter/material.dart';
 import 'package:globroker/screens/beyyaname_xidmeti_screen.dart';
 import 'package:globroker/screens/car_screen.dart';
@@ -8,10 +6,8 @@ import 'package:globroker/screens/questions_screen.dart';
 import 'package:globroker/screens/sertifikat_icaze_screen.dart';
 import 'package:globroker/screens/tam_gomruk_temsilciliyi_screen.dart';
 import 'package:globroker/screens/truck_screen.dart';
-import 'package:flutter/scheduler.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:globroker/screens/users_screen.dart';
 import 'package:globroker/screens/chats_list_screen.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -131,13 +127,13 @@ class _HomeScreenState extends State<HomeScreen> {
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  color: Color(0xFFE8F5E9), // açık yeşil
+                  color: const Color(0xFFE8F5E9), // açık yeşil
                   child: Padding(
                     padding: const EdgeInsets.all(16.0),
                     child: Row(
                       children: [
                         Container(
-                          padding: EdgeInsets.all(12),
+                          padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(12),
@@ -170,7 +166,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
               ),
-              SizedBox(height: 12),
+              const SizedBox(height: 12),
               GestureDetector(
                 onTap: () {
                   Navigator.of(context).push(_createRoute(const TruckScreen()));
@@ -179,13 +175,13 @@ class _HomeScreenState extends State<HomeScreen> {
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  color: Color(0xFFE3F2FD), // açık mavi
+                  color: const Color(0xFFE3F2FD), // açık mavi
                   child: Padding(
                     padding: const EdgeInsets.all(16.0),
                     child: Row(
                       children: [
                         Container(
-                          padding: EdgeInsets.all(12),
+                          padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(12),
@@ -212,13 +208,13 @@ class _HomeScreenState extends State<HomeScreen> {
                             ],
                           ),
                         ),
-                        Icon(Icons.arrow_forward, color: Colors.black),
+                        const Icon(Icons.arrow_forward, color: Colors.black),
                       ],
                     ),
                   ),
                 ),
               ),
-              SizedBox(height: 12),
+              const SizedBox(height: 12),
               GestureDetector(
                 onTap: () {
                   Navigator.of(context)
@@ -228,18 +224,18 @@ class _HomeScreenState extends State<HomeScreen> {
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  color: Color(0xFFFCE4EC), // açık pembe
+                  color: const Color(0xFFFCE4EC), // açık pembe
                   child: Padding(
                     padding: const EdgeInsets.all(16.0),
                     child: Row(
                       children: [
                         Container(
-                          padding: EdgeInsets.all(12),
+                          padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          child: Icon(Icons.description,
+                          child: const Icon(Icons.description,
                               color: Colors.pink, size: 30),
                         ),
                         const SizedBox(width: 16),
@@ -257,13 +253,13 @@ class _HomeScreenState extends State<HomeScreen> {
                             ],
                           ),
                         ),
-                        Icon(Icons.arrow_forward, color: Colors.black),
+                        const Icon(Icons.arrow_forward, color: Colors.black),
                       ],
                     ),
                   ),
                 ),
               ),
-              SizedBox(height: 12),
+              const SizedBox(height: 12),
               // Mevcut kodun devamı olarak, son SizedBox'tan sonra şu kartları ekleyin:
 
               const Padding(
@@ -458,7 +454,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ],
               ),
-              SizedBox(
+              const SizedBox(
                 height: 10,
               ),
             ],

@@ -5,13 +5,31 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter_app_badger/flutter_app_badger.dart';
 
 import '../screens/chat_screen.dart';
+
+// Son bildirimin ID'sini ve zamanını global olarak takip etmek için
+String? _lastBackgroundMessageId;
+DateTime? _lastBackgroundMessageTime;
 
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
+
+  // Aynı mesajı kontrol et
+  final messageId = message.messageId;
+  final currentTime = DateTime.now();
+
+  // Aynı ID'ye sahip mesaj veya son 2 saniye içinde gelen mesaj kontrolü
+  if (messageId == _lastBackgroundMessageId ||
+      (_lastBackgroundMessageTime != null &&
+          currentTime.difference(_lastBackgroundMessageTime!).inSeconds < 2)) {
+    print('BACKGROUND BILDIRIM: Tekrarlanan bildirim engellendi');
+    return; // Aynı mesajı tekrar gösterme
+  }
+
+  _lastBackgroundMessageId = messageId;
+  _lastBackgroundMessageTime = currentTime;
 
   // Background bildirimlerini göstermek için NotificationService'i başlat
   final notificationService = NotificationService();
@@ -115,8 +133,27 @@ class NotificationService {
   }
 
   void _setupNotificationHandlers() {
+    // Son bildirimin ID'sini takip etmek için
+    String? lastMessageId;
+    DateTime? lastMessageTime;
+
     // Foreground mesajları için
     FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
+      // Aynı mesajı kontrol et
+      final messageId = message.messageId;
+      final currentTime = DateTime.now();
+
+      // Aynı ID'ye sahip mesaj veya son 2 saniye içinde gelen mesaj kontrolü
+      if (messageId == lastMessageId ||
+          (lastMessageTime != null &&
+              currentTime.difference(lastMessageTime!).inSeconds < 2)) {
+        print('BILDIRIM: Tekrarlanan bildirim engellendi');
+        return; // Aynı mesajı tekrar gösterme
+      }
+
+      lastMessageId = messageId;
+      lastMessageTime = currentTime;
+
       print('BILDIRIM: Foreground mesajı alındı');
       print('BILDIRIM: Başlık: ${message.notification?.title}');
       print('BILDIRIM: İçerik: ${message.notification?.body}');
@@ -188,10 +225,45 @@ class NotificationService {
   Future<void> _saveFCMToken(String token) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
-      await FirebaseFirestore.instance
-          .collection('Users')
-          .doc(user.uid)
-          .update({'fcmToken': token});
+      try {
+        // Önce kullanıcı belgesini kontrol et
+        final userDoc = await FirebaseFirestore.instance
+            .collection('Users')
+            .doc(user.uid)
+            .get();
+
+        if (userDoc.exists) {
+          // Kullanıcı belgesi varsa güncelle
+          await FirebaseFirestore.instance
+              .collection('Users')
+              .doc(user.uid)
+              .update({'fcmToken': token});
+          print('FCM TOKEN: Token güncellendi - ${user.uid}');
+        } else {
+          // Kullanıcı belgesi yoksa oluştur
+          await FirebaseFirestore.instance
+              .collection('Users')
+              .doc(user.uid)
+              .set({
+            'fcmToken': token,
+            'displayName': user.displayName ?? 'İsimsiz Kullanıcı',
+            'email': user.email,
+            'photoURL': user.photoURL,
+            'uid': user.uid,
+          });
+          print('FCM TOKEN: Yeni kullanıcı belgesi oluşturuldu - ${user.uid}');
+        }
+
+        // Kontrol amaçlı token'ı tekrar oku
+        final updatedDoc = await FirebaseFirestore.instance
+            .collection('Users')
+            .doc(user.uid)
+            .get();
+
+        print('FCM TOKEN KONTROL: ${updatedDoc.data()?['fcmToken']}');
+      } catch (e) {
+        print('FCM TOKEN KAYIT HATASI: $e');
+      }
     }
   }
 
@@ -200,19 +272,22 @@ class NotificationService {
     required String body,
     String? payload,
   }) async {
+    // Benzersiz bir bildirim ID'si oluştur
+    final notificationId = DateTime.now().millisecondsSinceEpoch % 100000;
+
     await _localNotifications.show(
-      DateTime.now().millisecond,
+      notificationId, // Daha güvenilir bir ID
       title,
       body,
-      NotificationDetails(
-        android: const AndroidNotificationDetails(
+      const NotificationDetails(
+        android: AndroidNotificationDetails(
           'high_importance_channel',
           'Yüksək Əhəmiyyətli Bildirişlər',
           importance: Importance.max,
           priority: Priority.high,
           showWhen: true,
         ),
-        iOS: const DarwinNotificationDetails(
+        iOS: DarwinNotificationDetails(
           presentAlert: true,
           presentBadge: true,
           presentSound: true,
@@ -226,6 +301,7 @@ class NotificationService {
   }
 
   Future<void> updateBadgeCount(String currentUserId) async {
+    // Şimdilik sadece okunmamış mesajları sayalım
     final unreadMessages = await FirebaseFirestore.instance
         .collection('Messages')
         .where('receiverId', isEqualTo: currentUserId)
@@ -236,6 +312,7 @@ class NotificationService {
         .map((doc) => doc.data()['senderId'] as String)
         .toSet();
 
-    await FlutterAppBadger.updateBadgeCount(senderIds.length);
+    // Badge güncelleme kodunu kaldır
+    // await FlutterAppBadger.updateBadgeCount(senderIds.length);
   }
 }

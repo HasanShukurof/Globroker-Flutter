@@ -283,7 +283,7 @@ class _AuthScreenState extends State<AuthScreen> {
       await FirebaseAuth.instance.signInWithCredential(oauthCredential);
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+        const SnackBar(
           content: Text('Apple ilə giriş zamanı xəta baş verdi'),
           backgroundColor: Colors.red,
         ),

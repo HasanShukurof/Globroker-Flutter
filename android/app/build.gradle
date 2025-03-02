@@ -15,7 +15,7 @@ if (keystorePropertiesFile.exists()) {
 
 android {
     namespace = "com.hasanshukurov.globroker"  // Düzeltildi, tekrar eden .globroker kaldırıldı
-    compileSdk = flutter.compileSdkVersion
+    compileSdkVersion 34
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -29,8 +29,8 @@ android {
 
     defaultConfig {
         applicationId = "com.hasanshukurov.globroker"  // Düzeltildi, tekrar eden .globroker kaldırıldı
-        minSdk = 23
-        targetSdk = flutter.targetSdkVersion
+        minSdkVersion 23
+        targetSdkVersion 34
         versionCode = 27  // Eski uygulamadan bir fazla (18 + 1)
         versionName = "4.4.1"  // Eski versiyondan büyük (4.6'dan büyük)
     }
