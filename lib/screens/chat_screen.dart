@@ -124,162 +124,182 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Row(
+        title: GestureDetector(
+          onTap: _showProfileImage,
+          child: Row(
+            children: [
+              _receiverPhotoURL != null
+                  ? CircleAvatar(
+                      backgroundImage: NetworkImage(_receiverPhotoURL!),
+                      radius: 16,
+                    )
+                  : const CircleAvatar(
+                      child: Icon(Icons.person, size: 16),
+                      radius: 16,
+                    ),
+              const SizedBox(width: 8),
+              Text(widget.receiverName),
+            ],
+          ),
+        ),
+      ),
+      body: SafeArea(
+        child: Column(
           children: [
-            GestureDetector(
-              onTap: _receiverPhotoURL != null ? _showProfileImage : null,
-              child: CircleAvatar(
-                backgroundImage: _receiverPhotoURL != null
-                    ? NetworkImage(_receiverPhotoURL!)
-                    : null,
-                child: _receiverPhotoURL == null
-                    ? Text(widget.receiverName[0].toUpperCase())
-                    : null,
+            Expanded(
+              child: StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('Messages')
+                    .where('senderId',
+                        whereIn: [_currentUser.uid, widget.receiverId])
+                    .where('receiverId',
+                        whereIn: [_currentUser.uid, widget.receiverId])
+                    .orderBy('timestamp', descending: true)
+                    .snapshots(),
+                builder: (context, snapshot) {
+                  if (snapshot.hasError) {
+                    return Center(child: Text('Xəta: ${snapshot.error}'));
+                  }
+
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+
+                  final messages = snapshot.data!.docs
+                      .map((doc) =>
+                          Message.fromMap(doc.data() as Map<String, dynamic>))
+                      .toList();
+
+                  return ListView.builder(
+                    reverse: true,
+                    itemCount: messages.length,
+                    itemBuilder: (context, index) {
+                      final message = messages[index];
+                      final isMe = message.senderId == _currentUser.uid;
+
+                      // Mesaj tarihini formatlama
+                      final messageTime = message.timestamp;
+                      final now = DateTime.now();
+                      final today = DateTime(now.year, now.month, now.day);
+                      final messageDate = DateTime(
+                          messageTime.year, messageTime.month, messageTime.day);
+
+                      String formattedTime = '';
+
+                      // Bugün gönderilmiş mesajlar için sadece saat
+                      if (messageDate.isAtSameMomentAs(today)) {
+                        formattedTime =
+                            '${messageTime.hour.toString().padLeft(2, '0')}:${messageTime.minute.toString().padLeft(2, '0')}';
+                      }
+                      // Dün gönderilmiş mesajlar
+                      else if (messageDate.isAtSameMomentAs(
+                          today.subtract(const Duration(days: 1)))) {
+                        formattedTime =
+                            'Dün ${messageTime.hour.toString().padLeft(2, '0')}:${messageTime.minute.toString().padLeft(2, '0')}';
+                      }
+                      // Diğer günler için tarih ve saat
+                      else {
+                        formattedTime =
+                            '${messageTime.day.toString().padLeft(2, '0')}.${messageTime.month.toString().padLeft(2, '0')}.${messageTime.year} ${messageTime.hour.toString().padLeft(2, '0')}:${messageTime.minute.toString().padLeft(2, '0')}';
+                      }
+
+                      return Align(
+                        alignment:
+                            isMe ? Alignment.centerRight : Alignment.centerLeft,
+                        child: Container(
+                          margin: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: isMe ? Colors.blue : Colors.grey[300],
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: isMe
+                                ? CrossAxisAlignment.end
+                                : CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                message.content,
+                                style: TextStyle(
+                                  color: isMe ? Colors.white : Colors.black,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                formattedTime,
+                                style: TextStyle(
+                                  color: isMe
+                                      ? Colors.white.withOpacity(0.7)
+                                      : Colors.black54,
+                                  fontSize: 10,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                },
               ),
             ),
-            const SizedBox(width: 8),
-            Text(widget.receiverName),
-          ],
-        ),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
-      ),
-      body: Column(
-        children: [
-          Expanded(
-            child: StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('Messages')
-                  .where('senderId',
-                      whereIn: [_currentUser.uid, widget.receiverId])
-                  .where('receiverId',
-                      whereIn: [_currentUser.uid, widget.receiverId])
-                  .orderBy('timestamp', descending: true)
-                  .snapshots(),
-              builder: (context, snapshot) {
-                if (snapshot.hasError) {
-                  return Center(child: Text('Xəta: ${snapshot.error}'));
-                }
-
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-
-                final messages = snapshot.data!.docs
-                    .map((doc) =>
-                        Message.fromMap(doc.data() as Map<String, dynamic>))
-                    .toList();
-
-                return ListView.builder(
-                  reverse: true,
-                  itemCount: messages.length,
-                  itemBuilder: (context, index) {
-                    final message = messages[index];
-                    final isMe = message.senderId == _currentUser.uid;
-
-                    // Mesaj tarihini formatlama
-                    final messageTime = message.timestamp;
-                    final now = DateTime.now();
-                    final today = DateTime(now.year, now.month, now.day);
-                    final messageDate = DateTime(
-                        messageTime.year, messageTime.month, messageTime.day);
-
-                    String formattedTime = '';
-
-                    // Bugün gönderilmiş mesajlar için sadece saat
-                    if (messageDate.isAtSameMomentAs(today)) {
-                      formattedTime =
-                          '${messageTime.hour.toString().padLeft(2, '0')}:${messageTime.minute.toString().padLeft(2, '0')}';
-                    }
-                    // Dün gönderilmiş mesajlar
-                    else if (messageDate.isAtSameMomentAs(
-                        today.subtract(const Duration(days: 1)))) {
-                      formattedTime =
-                          'Dün ${messageTime.hour.toString().padLeft(2, '0')}:${messageTime.minute.toString().padLeft(2, '0')}';
-                    }
-                    // Diğer günler için tarih ve saat
-                    else {
-                      formattedTime =
-                          '${messageTime.day.toString().padLeft(2, '0')}.${messageTime.month.toString().padLeft(2, '0')}.${messageTime.year} ${messageTime.hour.toString().padLeft(2, '0')}:${messageTime.minute.toString().padLeft(2, '0')}';
-                    }
-
-                    return Align(
-                      alignment:
-                          isMe ? Alignment.centerRight : Alignment.centerLeft,
-                      child: Container(
-                        margin: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: isMe ? Colors.blue : Colors.grey[300],
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: isMe
-                              ? CrossAxisAlignment.end
-                              : CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              message.content,
-                              style: TextStyle(
-                                color: isMe ? Colors.white : Colors.black,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              formattedTime,
-                              style: TextStyle(
-                                color: isMe
-                                    ? Colors.white.withOpacity(0.7)
-                                    : Colors.black54,
-                                fontSize: 10,
-                              ),
-                            ),
-                          ],
-                        ),
+            Padding(
+              padding: EdgeInsets.only(
+                  left: 8.0,
+                  right: 8.0,
+                  top: 8.0,
+                  bottom: MediaQuery.of(context).viewInsets.bottom > 0
+                      ? 8.0
+                      : MediaQuery.of(context).padding.bottom + 8.0),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: Colors.grey.shade300),
                       ),
-                    );
-                  },
-                );
-              },
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _messageController,
-                    decoration: const InputDecoration(
-                      hintText: 'Mesaj yazın...',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.all(Radius.circular(20)),
-                      ),
-                      contentPadding: EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
+                      child: TextField(
+                        controller: _messageController,
+                        decoration: const InputDecoration(
+                          hintText: 'Mesaj yazın...',
+                          border: InputBorder.none,
+                          contentPadding: EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 10,
+                          ),
+                        ),
+                        textInputAction: TextInputAction.send,
+                        onSubmitted: (_) => _sendMessage(),
+                        keyboardType: TextInputType.text,
+                        minLines: 1,
+                        maxLines: 4,
                       ),
                     ),
-                    textInputAction: TextInputAction.send,
-                    onSubmitted: (_) => _sendMessage(),
-                    keyboardType: TextInputType.text,
                   ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.send),
-                  onPressed: _sendMessage,
-                ),
-              ],
+                  const SizedBox(width: 8),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.blue,
+                      shape: BoxShape.circle,
+                    ),
+                    child: IconButton(
+                      icon: const Icon(Icons.send, color: Colors.white),
+                      onPressed: _sendMessage,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
