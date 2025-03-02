@@ -67,45 +67,6 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
         actions: [
-          StreamBuilder<int>(
-            stream: _getUnreadChatsCount(),
-            builder: (context, snapshot) {
-              return Stack(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.message, color: Colors.black),
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (context) => const ChatsListScreen()),
-                      );
-                    },
-                  ),
-                  if (snapshot.hasData && snapshot.data! > 0)
-                    Positioned(
-                      right: 5,
-                      top: 5,
-                      child: Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: const BoxDecoration(
-                          color: Colors.blue,
-                          shape: BoxShape.circle,
-                        ),
-                        child: Text(
-                          snapshot.data.toString(),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
-              );
-            },
-          ),
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert, color: Colors.black),
             onSelected: (value) {
