@@ -8,7 +8,6 @@ import 'package:globroker/screens/tam_gomruk_temsilciliyi_screen.dart';
 import 'package:globroker/screens/truck_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:globroker/screens/chats_list_screen.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:globroker/screens/profile_screen.dart';
 
