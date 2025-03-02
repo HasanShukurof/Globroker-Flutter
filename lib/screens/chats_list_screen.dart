@@ -150,6 +150,48 @@ class ChatsListScreen extends StatelessWidget {
                               messageSnapshot.data?['unreadCount'] ?? 0;
                           final lastMessage =
                               messageSnapshot.data?['lastMessage'] ?? '';
+                          final timestamp =
+                              messageSnapshot.data?['timestamp'] as DateTime?;
+
+                          // Tarih formatını ayarla
+                          String formattedTime = '';
+                          if (timestamp != null) {
+                            final now = DateTime.now();
+                            final today =
+                                DateTime(now.year, now.month, now.day);
+                            final messageDate = DateTime(
+                                timestamp.year, timestamp.month, timestamp.day);
+
+                            // Bugün gönderilmiş mesajlar için sadece saat
+                            if (messageDate.isAtSameMomentAs(today)) {
+                              formattedTime =
+                                  '${timestamp.hour.toString().padLeft(2, '0')}:${timestamp.minute.toString().padLeft(2, '0')}';
+                            }
+                            // Dün gönderilmiş mesajlar
+                            else if (messageDate.isAtSameMomentAs(
+                                today.subtract(const Duration(days: 1)))) {
+                              formattedTime = 'Dün';
+                            }
+                            // Bu hafta içinde
+                            else if (now.difference(messageDate).inDays < 7) {
+                              final weekdays = [
+                                'Bazar',
+                                'Bazar ertəsi',
+                                'Çərşənbə axşamı',
+                                'Çərşənbə',
+                                'Cümə axşamı',
+                                'Cümə',
+                                'Şənbə'
+                              ];
+                              formattedTime = weekdays[
+                                  messageDate.weekday % 7]; // 0-6 arası indeks
+                            }
+                            // Diğer günler için tarih
+                            else {
+                              formattedTime =
+                                  '${messageDate.day.toString().padLeft(2, '0')}.${messageDate.month.toString().padLeft(2, '0')}.${messageDate.year}';
+                            }
+                          }
 
                           return ListTile(
                             leading: CircleAvatar(
@@ -167,6 +209,16 @@ class ChatsListScreen extends StatelessWidget {
                                   child: Text(
                                       userData['displayName'] ?? 'İstifadəçi'),
                                 ),
+                                if (formattedTime.isNotEmpty)
+                                  Text(
+                                    formattedTime,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey[600],
+                                      fontWeight: FontWeight.normal,
+                                    ),
+                                  ),
+                                const SizedBox(width: 4),
                                 if (unreadCount > 0)
                                   Container(
                                     padding: const EdgeInsets.all(6),

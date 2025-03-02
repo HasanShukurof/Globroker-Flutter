@@ -124,6 +124,32 @@ class _ChatScreenState extends State<ChatScreen> {
                     final message = messages[index];
                     final isMe = message.senderId == _currentUser.uid;
 
+                    // Mesaj tarihini formatlama
+                    final messageTime = message.timestamp;
+                    final now = DateTime.now();
+                    final today = DateTime(now.year, now.month, now.day);
+                    final messageDate = DateTime(
+                        messageTime.year, messageTime.month, messageTime.day);
+
+                    String formattedTime = '';
+
+                    // Bugün gönderilmiş mesajlar için sadece saat
+                    if (messageDate.isAtSameMomentAs(today)) {
+                      formattedTime =
+                          '${messageTime.hour.toString().padLeft(2, '0')}:${messageTime.minute.toString().padLeft(2, '0')}';
+                    }
+                    // Dün gönderilmiş mesajlar
+                    else if (messageDate.isAtSameMomentAs(
+                        today.subtract(const Duration(days: 1)))) {
+                      formattedTime =
+                          'Dün ${messageTime.hour.toString().padLeft(2, '0')}:${messageTime.minute.toString().padLeft(2, '0')}';
+                    }
+                    // Diğer günler için tarih ve saat
+                    else {
+                      formattedTime =
+                          '${messageTime.day.toString().padLeft(2, '0')}.${messageTime.month.toString().padLeft(2, '0')}.${messageTime.year} ${messageTime.hour.toString().padLeft(2, '0')}:${messageTime.minute.toString().padLeft(2, '0')}';
+                    }
+
                     return Align(
                       alignment:
                           isMe ? Alignment.centerRight : Alignment.centerLeft,
@@ -140,11 +166,29 @@ class _ChatScreenState extends State<ChatScreen> {
                           color: isMe ? Colors.blue : Colors.grey[300],
                           borderRadius: BorderRadius.circular(16),
                         ),
-                        child: Text(
-                          message.content,
-                          style: TextStyle(
-                            color: isMe ? Colors.white : Colors.black,
-                          ),
+                        child: Column(
+                          crossAxisAlignment: isMe
+                              ? CrossAxisAlignment.end
+                              : CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              message.content,
+                              style: TextStyle(
+                                color: isMe ? Colors.white : Colors.black,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              formattedTime,
+                              style: TextStyle(
+                                color: isMe
+                                    ? Colors.white.withOpacity(0.7)
+                                    : Colors.black54,
+                                fontSize: 10,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     );
