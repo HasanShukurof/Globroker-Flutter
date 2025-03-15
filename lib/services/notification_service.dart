@@ -8,76 +8,75 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 import '../screens/chat_screen.dart';
 
-// Son bildirimin ID'sini ve zamanını global olarak takip etmek için
-String? _lastBackgroundMessageId;
-DateTime? _lastBackgroundMessageTime;
-
-@pragma('vm:entry-point')
-Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  await Firebase.initializeApp();
-
-  // Aynı mesajı kontrol et
-  final messageId = message.messageId;
-  final currentTime = DateTime.now();
-
-  // Aynı ID'ye sahip mesaj veya son 2 saniye içinde gelen mesaj kontrolü
-  if (messageId == _lastBackgroundMessageId ||
-      (_lastBackgroundMessageTime != null &&
-          currentTime.difference(_lastBackgroundMessageTime!).inSeconds < 2)) {
-    print('BACKGROUND BILDIRIM: Tekrarlanan bildirim engellendi');
-    return; // Aynı mesajı tekrar gösterme
-  }
-
-  _lastBackgroundMessageId = messageId;
-  _lastBackgroundMessageTime = currentTime;
-
-  // Background bildirimlerini göstermek için NotificationService'i başlat
-  final notificationService = NotificationService();
-  await notificationService._setupNotificationChannels();
-
-  // Bildirimi Firestore'a kaydet
-  await notificationService._saveNotificationToFirestore(message);
-
-  await notificationService._showNotification(
-    title: message.notification?.title ?? 'Yeni Mesaj',
-    body: message.notification?.body ?? '',
-    payload: '${message.data['senderId']},${message.data['senderName']}',
-  );
-}
-
+// Bildirim servisi - Singleton pattern kullanıyoruz
 class NotificationService {
+  static final NotificationService _instance = NotificationService._internal();
+  factory NotificationService() => _instance;
+  NotificationService._internal();
+
   final FirebaseMessaging _messaging = FirebaseMessaging.instance;
   final FlutterLocalNotificationsPlugin _localNotifications =
       FlutterLocalNotificationsPlugin();
   final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
+  // Son bildirim bilgilerini takip etmek için değişkenler
+  String? _lastMessageId;
+  DateTime? _lastMessageTime;
+  Map<String, DateTime> _lastSenderNotifications = {};
+
+  // Bildirim kanalı ID'si
+  static const String _channelId = 'high_importance_channel';
+  static const String _channelName = 'Yüksək Əhəmiyyətli Bildirişlər';
+
+  // Bildirim servisini başlat
   Future<void> initialize() async {
-    // iOS için ek ayarlar
-    if (Platform.isIOS) {
-      await FirebaseMessaging.instance
-          .setForegroundNotificationPresentationOptions(
-        alert: true,
-        badge: true,
-        sound: true,
-      );
+    try {
+      print('BILDIRIM SERVISI: Başlatılıyor...');
+
+      // iOS için ek ayarlar
+      if (Platform.isIOS) {
+        print('BILDIRIM SERVISI: iOS ayarları yapılandırılıyor...');
+        await _messaging.setForegroundNotificationPresentationOptions(
+          alert: true,
+          badge: true,
+          sound: true,
+        );
+        print('BILDIRIM SERVISI: iOS ayarları tamamlandı');
+      }
+
+      // Bildirim izinlerini iste
+      print('BILDIRIM SERVISI: Bildirim izinleri isteniyor...');
+      await _requestPermissions();
+      print('BILDIRIM SERVISI: Bildirim izinleri alındı');
+
+      // Bildirim kanallarını ayarla
+      print('BILDIRIM SERVISI: Bildirim kanalları ayarlanıyor...');
+      await _setupNotificationChannels();
+      print('BILDIRIM SERVISI: Bildirim kanalları ayarlandı');
+
+      // ÖNEMLİ: Foreground mesajları için dinleyici ayarla
+      // Bu, uygulamanın ön planda olduğu durumda bildirimleri işleyecek
+      print('BILDIRIM SERVISI: Foreground mesaj dinleyicisi ayarlanıyor...');
+      _setupForegroundMessageHandler();
+      print('BILDIRIM SERVISI: Foreground mesaj dinleyicisi ayarlandı');
+
+      // Bildirime tıklama işleyicisini ayarla
+      print('BILDIRIM SERVISI: Bildirim tıklama işleyicisi ayarlanıyor...');
+      _setupNotificationTapHandler();
+      print('BILDIRIM SERVISI: Bildirim tıklama işleyicisi ayarlandı');
+
+      // FCM token'ı al ve kaydet
+      print('BILDIRIM SERVISI: FCM token alınıyor...');
+      await _getFCMToken();
+      print('BILDIRIM SERVISI: FCM token alındı ve kaydedildi');
+
+      print('BILDIRIM SERVISI: Başarıyla başlatıldı');
+    } catch (e) {
+      print('BILDIRIM SERVISI HATASI: $e');
     }
-
-    // FCM için arka plan işleyicisini ayarla
-    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-
-    // Bildirim izinlerini iste
-    await _requestPermissions();
-
-    // Bildirim kanallarını ayarla
-    await _setupNotificationChannels();
-
-    // Bildirim işleyicilerini ayarla
-    _setupNotificationHandlers();
-
-    // FCM token'ı al ve kaydet
-    await _getFCMToken();
   }
 
+  // Bildirim izinlerini iste
   Future<void> _requestPermissions() async {
     await _messaging.requestPermission(
       alert: true,
@@ -98,10 +97,12 @@ class NotificationService {
     }
   }
 
+  // Bildirim kanallarını ayarla
   Future<void> _setupNotificationChannels() async {
+    // Android için bildirim kanalı oluştur
     const androidChannel = AndroidNotificationChannel(
-      'high_importance_channel',
-      'Yüksək Əhəmiyyətli Bildirişlər',
+      _channelId,
+      _channelName,
       importance: Importance.max,
       playSound: true,
       enableVibration: true,
@@ -112,6 +113,7 @@ class NotificationService {
             AndroidFlutterLocalNotificationsPlugin>()
         ?.createNotificationChannel(androidChannel);
 
+    // iOS ve Android için bildirim ayarları
     const initializationSettingsIOS = DarwinInitializationSettings(
       requestAlertPermission: true,
       requestBadgePermission: true,
@@ -129,77 +131,96 @@ class NotificationService {
       android: initializationSettingsAndroid,
     );
 
+    // Bildirim tıklama işleyicisini ayarla
     await _localNotifications.initialize(
       initializationSettings,
       onDidReceiveNotificationResponse: _handleNotificationTap,
     );
   }
 
-  void _setupNotificationHandlers() {
-    // Son bildirimin ID'sini takip etmek için
-    String? lastMessageId;
-    DateTime? lastMessageTime;
-
-    // Foreground mesajları için
+  // Foreground mesajları için dinleyici
+  void _setupForegroundMessageHandler() {
     FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
-      // Aynı mesajı kontrol et
-      final messageId = message.messageId;
-      final currentTime = DateTime.now();
+      try {
+        print('FOREGROUND BILDIRIM: Bildirim alındı');
+        print('FOREGROUND BILDIRIM: ID: ${message.messageId}');
+        print('FOREGROUND BILDIRIM: Başlık: ${message.notification?.title}');
+        print('FOREGROUND BILDIRIM: İçerik: ${message.notification?.body}');
+        print('FOREGROUND BILDIRIM: Data: ${message.data}');
 
-      // Aynı ID'ye sahip mesaj veya son 2 saniye içinde gelen mesaj kontrolü
-      if (messageId == lastMessageId ||
-          (lastMessageTime != null &&
-              currentTime.difference(lastMessageTime!).inSeconds < 2)) {
-        print('BILDIRIM: Tekrarlanan bildirim engellendi');
-        return; // Aynı mesajı tekrar gösterme
-      }
+        // Bildirim filtreleme - Aynı bildirimi tekrar gösterme
+        if (!_shouldShowNotification(message)) {
+          print('FOREGROUND BILDIRIM: Bildirim filtrelendi, gösterilmeyecek');
+          return;
+        }
 
-      lastMessageId = messageId;
-      lastMessageTime = currentTime;
+        // Bildirimi Firestore'a kaydet (mesaj bildirimleri hariç)
+        if (!_isMessageNotification(message)) {
+          await _saveNotificationToFirestore(message);
+        }
 
-      print('BILDIRIM: Foreground mesajı alındı');
-      print('BILDIRIM: Başlık: ${message.notification?.title}');
-      print('BILDIRIM: İçerik: ${message.notification?.body}');
-      print('BILDIRIM: Data: ${message.data}');
+        // Bildirim verisi hazırlama
+        final notificationData = _prepareNotificationData(message);
 
-      // Bildirimi Firestore'a kaydet
-      await _saveNotificationToFirestore(message);
-
-      // Her mesaj için bildirim göster
-      if (message.notification != null) {
+        // Bildirimi göster
         await _showNotification(
-          title: message.notification!.title ?? 'Yeni Mesaj',
-          body: message.notification!.body ?? '',
-          payload: '${message.data['senderId']},${message.data['senderName']}',
+          title: notificationData.title,
+          body: notificationData.body,
+          payload: notificationData.payload,
+          groupKey: notificationData.groupKey,
         );
+
+        print('FOREGROUND BILDIRIM: Bildirim gösterildi');
+      } catch (e) {
+        print('FOREGROUND BILDIRIM HATASI: $e');
       }
     });
+  }
 
+  // Bildirime tıklama işleyicisini ayarla
+  void _setupNotificationTapHandler() {
     // Uygulama arka plandayken tıklanan bildirimler
     FirebaseMessaging.onMessageOpenedApp.listen(_handleMessageOpenedApp);
-
-    // Background mesajları için
-    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
   }
 
+  // Bildirime tıklandığında çağrılacak metod
   void _handleNotificationTap(NotificationResponse response) {
-    // Bildirime tıklandığında sohbet ekranına yönlendir
-    final data = response.payload?.split(',');
-    if (data != null && data.length >= 2) {
-      final senderId = data[0];
-      final senderName = data[1];
-      _navigateToChatScreen(senderId, senderName);
+    try {
+      print('BILDIRIM TAP: Bildirime tıklandı, payload: ${response.payload}');
+
+      // Payload'ı işle
+      final data = response.payload?.split(',');
+      if (data != null && data.length >= 2) {
+        final senderId = data[0];
+        final senderName = data[1];
+
+        // Boş değilse sohbet ekranına yönlendir
+        if (senderId.isNotEmpty && senderName.isNotEmpty) {
+          _navigateToChatScreen(senderId, senderName);
+        }
+      }
+    } catch (e) {
+      print('BILDIRIM TAP HATASI: $e');
     }
   }
 
+  // Uygulama arka plandayken bildirime tıklandığında çağrılacak metod
   void _handleMessageOpenedApp(RemoteMessage message) {
-    final senderId = message.data['senderId'];
-    final senderName = message.data['senderName'];
-    if (senderId != null && senderName != null) {
-      _navigateToChatScreen(senderId, senderName);
+    try {
+      print('BILDIRIM OPENED APP: Bildirime tıklandı');
+
+      final senderId = message.data['senderId'];
+      final senderName = message.data['senderName'];
+
+      if (senderId != null && senderName != null) {
+        _navigateToChatScreen(senderId, senderName);
+      }
+    } catch (e) {
+      print('BILDIRIM OPENED APP HATASI: $e');
     }
   }
 
+  // Sohbet ekranına yönlendirme
   void _navigateToChatScreen(String senderId, String senderName) {
     navigatorKey.currentState?.push(
       MaterialPageRoute(
@@ -211,6 +232,7 @@ class NotificationService {
     );
   }
 
+  // FCM token'ı al ve kaydet
   Future<void> _getFCMToken() async {
     try {
       final token = await _messaging.getToken();
@@ -218,21 +240,21 @@ class NotificationService {
 
       if (token != null) {
         await _saveFCMToken(token);
-        print('FCM TOKEN: Token başarıyla kaydedildi');
       }
-    } catch (e) {
-      print('FCM TOKEN HATASI: Token alınırken hata: $e');
-    }
 
-    // Token yenilendiğinde
-    _messaging.onTokenRefresh.listen(_saveFCMToken);
+      // Token yenilendiğinde
+      _messaging.onTokenRefresh.listen(_saveFCMToken);
+    } catch (e) {
+      print('FCM TOKEN HATASI: $e');
+    }
   }
 
+  // FCM token'ı Firestore'a kaydet
   Future<void> _saveFCMToken(String token) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
       try {
-        // Önce kullanıcı belgesini kontrol et
+        // Kullanıcı belgesini kontrol et
         final userDoc = await FirebaseFirestore.instance
             .collection('Users')
             .doc(user.uid)
@@ -244,7 +266,6 @@ class NotificationService {
               .collection('Users')
               .doc(user.uid)
               .update({'fcmToken': token});
-          print('FCM TOKEN: Token güncellendi - ${user.uid}');
         } else {
           // Kullanıcı belgesi yoksa oluştur
           await FirebaseFirestore.instance
@@ -257,132 +278,270 @@ class NotificationService {
             'photoURL': user.photoURL,
             'uid': user.uid,
           });
-          print('FCM TOKEN: Yeni kullanıcı belgesi oluşturuldu - ${user.uid}');
         }
-
-        // Kontrol amaçlı token'ı tekrar oku
-        final updatedDoc = await FirebaseFirestore.instance
-            .collection('Users')
-            .doc(user.uid)
-            .get();
-
-        print('FCM TOKEN KONTROL: ${updatedDoc.data()?['fcmToken']}');
       } catch (e) {
         print('FCM TOKEN KAYIT HATASI: $e');
       }
     }
   }
 
+  // Bildirimin gösterilip gösterilmeyeceğine karar veren metod
+  bool _shouldShowNotification(RemoteMessage message) {
+    final messageId = message.messageId;
+    final currentTime = DateTime.now();
+
+    // Aynı ID'ye sahip mesaj kontrolü
+    if (messageId == _lastMessageId) {
+      print('BILDIRIM FILTRE: Aynı ID\'ye sahip bildirim engellendi');
+      return false;
+    }
+
+    // Son 2 saniye içinde gelen bildirim kontrolü
+    if (_lastMessageTime != null &&
+        currentTime.difference(_lastMessageTime!).inSeconds < 2) {
+      print('BILDIRIM FILTRE: Son 2 saniye içinde bildirim geldi, engellendi');
+      return false;
+    }
+
+    // Aynı gönderenden son 10 saniye içinde bildirim gelmiş mi kontrolü
+    final senderId = message.data['senderId'];
+    if (senderId != null && _lastSenderNotifications.containsKey(senderId)) {
+      final lastTime = _lastSenderNotifications[senderId]!;
+      if (currentTime.difference(lastTime).inSeconds < 10) {
+        print(
+            'BILDIRIM FILTRE: Aynı gönderenden son 10 saniye içinde bildirim geldi, engellendi');
+        return false;
+      }
+    }
+
+    // Bildirimin gösterilmesine izin veriliyorsa, son bildirim bilgilerini güncelle
+    _lastMessageId = messageId;
+    _lastMessageTime = currentTime;
+
+    // Gönderici ID'si varsa, son bildirim zamanını güncelle
+    if (senderId != null) {
+      _lastSenderNotifications[senderId] = currentTime;
+    }
+
+    return true; // Bildirimin gösterilmesine izin ver
+  }
+
+  // Mesaj bildirimi mi kontrolü
+  bool _isMessageNotification(RemoteMessage message) {
+    return message.data.containsKey('senderId') &&
+        message.data.containsKey('senderName');
+  }
+
+  // Bildirim verilerini hazırlama
+  _NotificationData _prepareNotificationData(RemoteMessage message) {
+    String title = message.notification?.title ?? 'Yeni Mesaj';
+    String body = message.notification?.body ?? '';
+    String? groupKey;
+    String payload = '';
+
+    // Mesaj bildirimi ise
+    if (_isMessageNotification(message)) {
+      final senderId = message.data['senderId'];
+      final senderName = message.data['senderName'];
+
+      // Eğer notification verisi yoksa ve bu bir mesaj bildirimi ise
+      if (message.notification == null && message.data.containsKey('content')) {
+        title = 'Yeni Mesaj';
+        body = '${senderName}: ${message.data['content']}';
+      }
+
+      // Payload ve groupKey ayarla
+      payload = '$senderId,$senderName';
+      groupKey = senderId != null ? 'message_$senderId' : null;
+    }
+
+    return _NotificationData(
+      title: title,
+      body: body,
+      payload: payload,
+      groupKey: groupKey,
+    );
+  }
+
   // Bildirimi Firestore'a kaydetme
   Future<void> _saveNotificationToFirestore(RemoteMessage message) async {
     final user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
-      try {
-        await FirebaseFirestore.instance
-            .collection('Users')
-            .doc(user.uid)
-            .collection('Notifications')
-            .add({
-          'title': message.notification?.title ?? 'Yeni Bildirim',
-          'body': message.notification?.body ?? '',
-          'timestamp': FieldValue.serverTimestamp(),
-          'data': message.data,
-          'isRead': false,
-        });
-        print('BİLDİRİM: Firestore\'a kaydedildi');
-      } catch (e) {
-        print('BİLDİRİM KAYIT HATASI: $e');
+    if (user == null) return;
+
+    try {
+      // Mesaj bildirimleri için kontrol
+      if (_isMessageNotification(message)) {
+        print('BILDIRIM KAYIT: Mesaj bildirimi olduğu için kaydedilmedi');
+        return;
       }
+
+      // Konsol bildirimlerini tespit et
+      bool isFromConsole = message.data.containsKey('google.c.sender.id') ||
+          message.data.containsKey('google.c.a.e');
+
+      // Bildirim verilerini hazırla
+      Map<String, dynamic> notificationData = {
+        'title': message.notification?.title ?? 'Yeni Bildirim',
+        'body': message.notification?.body ?? '',
+        'timestamp': FieldValue.serverTimestamp(),
+        'isRead': false,
+        'source': isFromConsole ? 'console' : 'direct',
+      };
+
+      // Data alanını filtrele (google.* alanlarını kaldır)
+      Map<String, dynamic> filteredData = {};
+      message.data.forEach((key, value) {
+        if (!key.startsWith('google.')) {
+          filteredData[key] = value;
+        }
+      });
+
+      if (filteredData.isNotEmpty) {
+        notificationData['data'] = filteredData;
+      }
+
+      // Firestore'a kaydet
+      await FirebaseFirestore.instance
+          .collection('Users')
+          .doc(user.uid)
+          .collection('Notifications')
+          .add(notificationData);
+
+      print('BILDIRIM KAYIT: Firestore\'a kaydedildi');
+    } catch (e) {
+      print('BILDIRIM KAYIT HATASI: $e');
     }
   }
 
+  // Bildirimi gösterme
   Future<void> _showNotification({
     required String title,
     required String body,
     String? payload,
+    String? groupKey,
   }) async {
-    // Benzersiz bir bildirim ID'si oluştur
-    final notificationId = DateTime.now().millisecondsSinceEpoch % 100000;
+    try {
+      // Bildirim ID'si oluştur
+      final int notificationId;
 
-    await _localNotifications.show(
-      notificationId, // Daha güvenilir bir ID
-      title,
-      body,
-      const NotificationDetails(
-        android: AndroidNotificationDetails(
-          'high_importance_channel',
-          'Yüksək Əhəmiyyətli Bildirişlər',
-          importance: Importance.max,
-          priority: Priority.high,
-          showWhen: true,
+      // Mesaj bildirimleri için sabit ID kullan
+      if (groupKey != null && groupKey.startsWith('message_')) {
+        notificationId = groupKey.hashCode % 100000;
+      } else {
+        // Diğer bildirimler için içerik bazlı ID
+        final contentHash = '$title$body'.hashCode;
+        notificationId =
+            (DateTime.now().millisecondsSinceEpoch + contentHash) % 100000;
+      }
+
+      print(
+          'BILDIRIM GOSTERME: ID=$notificationId, Başlık=$title, İçerik=$body');
+
+      // Bildirimi göster
+      await _localNotifications.show(
+        notificationId,
+        title,
+        body,
+        NotificationDetails(
+          android: AndroidNotificationDetails(
+            _channelId,
+            _channelName,
+            importance: Importance.max,
+            priority: Priority.high,
+            showWhen: true,
+            groupKey: groupKey,
+            channelShowBadge: true,
+            autoCancel: true,
+          ),
+          iOS: const DarwinNotificationDetails(
+            presentAlert: true,
+            presentBadge: true,
+            presentSound: true,
+          ),
         ),
-        iOS: DarwinNotificationDetails(
-          presentAlert: true,
-          presentBadge: true,
-          presentSound: true,
-        ),
-      ),
-      payload: payload,
-    );
+        payload: payload,
+      );
 
-    // Badge sayısını güncelle
-    await updateBadgeCount(FirebaseAuth.instance.currentUser!.uid);
-  }
-
-  Future<void> updateBadgeCount(String currentUserId) async {
-    // Şimdilik sadece okunmamış mesajları sayalım
-    final unreadMessages = await FirebaseFirestore.instance
-        .collection('Messages')
-        .where('receiverId', isEqualTo: currentUserId)
-        .where('isRead', isEqualTo: false)
-        .get();
-
-    final senderIds = unreadMessages.docs
-        .map((doc) => doc.data()['senderId'] as String)
-        .toSet();
-
-    // Badge güncelleme kodunu kaldır
-    // await FlutterAppBadger.updateBadgeCount(senderIds.length);
+      print('BILDIRIM GOSTERME: Başarılı');
+    } catch (e) {
+      print('BILDIRIM GOSTERME HATASI: $e');
+    }
   }
 
   // Bildirimleri okundu olarak işaretleme
   Future<void> markNotificationAsRead(String notificationId) async {
     final user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
-      try {
-        await FirebaseFirestore.instance
-            .collection('Users')
-            .doc(user.uid)
-            .collection('Notifications')
-            .doc(notificationId)
-            .update({'isRead': true});
-      } catch (e) {
-        print('BİLDİRİM GÜNCELLEME HATASI: $e');
-      }
+    if (user == null) return;
+
+    try {
+      await FirebaseFirestore.instance
+          .collection('Users')
+          .doc(user.uid)
+          .collection('Notifications')
+          .doc(notificationId)
+          .update({'isRead': true});
+    } catch (e) {
+      print('BILDIRIM GUNCELLEME HATASI: $e');
     }
   }
 
   // Tüm bildirimleri okundu olarak işaretleme
   Future<void> markAllNotificationsAsRead() async {
     final user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
-      try {
-        final batch = FirebaseFirestore.instance.batch();
-        final notifications = await FirebaseFirestore.instance
-            .collection('Users')
-            .doc(user.uid)
-            .collection('Notifications')
-            .where('isRead', isEqualTo: false)
-            .get();
+    if (user == null) return;
 
-        for (var doc in notifications.docs) {
-          batch.update(doc.reference, {'isRead': true});
-        }
+    try {
+      final batch = FirebaseFirestore.instance.batch();
+      final notifications = await FirebaseFirestore.instance
+          .collection('Users')
+          .doc(user.uid)
+          .collection('Notifications')
+          .where('isRead', isEqualTo: false)
+          .get();
 
-        await batch.commit();
-      } catch (e) {
-        print('TÜM BİLDİRİMLERİ GÜNCELLEME HATASI: $e');
+      for (var doc in notifications.docs) {
+        batch.update(doc.reference, {'isRead': true});
       }
+
+      await batch.commit();
+    } catch (e) {
+      print('TUM BILDIRIMLERI GUNCELLEME HATASI: $e');
     }
   }
+
+  // Badge sayısını güncelleme
+  Future<void> updateBadgeCount(String userId) async {
+    try {
+      // Okunmamış mesajları say
+      final unreadMessages = await FirebaseFirestore.instance
+          .collection('Messages')
+          .where('receiverId', isEqualTo: userId)
+          .where('isRead', isEqualTo: false)
+          .get();
+
+      final senderIds = unreadMessages.docs
+          .map((doc) => doc.data()['senderId'] as String)
+          .toSet();
+
+      // Badge güncelleme kodunu kaldır
+      // await FlutterAppBadger.updateBadgeCount(senderIds.length);
+    } catch (e) {
+      print('BADGE GUNCELLEME HATASI: $e');
+    }
+  }
+}
+
+// Bildirim verilerini taşıyan yardımcı sınıf
+class _NotificationData {
+  final String title;
+  final String body;
+  final String payload;
+  final String? groupKey;
+
+  _NotificationData({
+    required this.title,
+    required this.body,
+    this.payload = '',
+    this.groupKey,
+  });
 }

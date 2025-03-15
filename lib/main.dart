@@ -12,21 +12,59 @@ import 'package:globroker/screens/profile_screen.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:globroker/screens/notification_screen.dart';
 
+// NotificationService örneği (global instance)
+final notificationService = NotificationService();
+
+// Arka plan bildirim işleyicisi - Çok basit tutuyoruz
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  // Sadece log yazdırıyoruz, bildirim gösterme işlemini yapmıyoruz
+  // Çünkü Android zaten otomatik olarak bildirimi gösterecek
+  print('BACKGROUND HANDLER: Bildirim alındı, ID: ${message.messageId}');
+  print('BACKGROUND HANDLER: Başlık: ${message.notification?.title}');
+  print('BACKGROUND HANDLER: İçerik: ${message.notification?.body}');
+}
+
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
+  try {
+    WidgetsFlutterBinding.ensureInitialized();
 
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+    // Firebase'i başlat
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
 
-  final notificationService = NotificationService();
-  await notificationService.initialize();
+    // Firebase Messaging'i manuel olarak başlat
+    // AndroidManifest.xml'de auto_init_enabled false olarak ayarlandı
+    await FirebaseMessaging.instance.setAutoInitEnabled(true);
 
-  print('FCM TOKEN: ${await FirebaseMessaging.instance.getToken()}');
+    // ÖNEMLİ: Background handler'ı burada, sadece bir kez ayarla
+    // Ancak bu handler sadece log yazdıracak, bildirim göstermeyecek
+    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
-  runApp(GloBroker(
-    navigatorKey: notificationService.navigatorKey,
-  ));
+    // NotificationService'i başlat
+    await notificationService.initialize();
+
+    // FCM token'ı al ve logla
+    final fcmToken = await FirebaseMessaging.instance.getToken();
+    print('FCM TOKEN: $fcmToken');
+
+    runApp(GloBroker(
+      navigatorKey: notificationService.navigatorKey,
+    ));
+  } catch (e) {
+    print('UYGULAMA BAŞLATMA HATASI: $e');
+    // Hata durumunda basit bir uygulama çalıştır
+    runApp(
+      MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: Text('Uygulama başlatılırken bir hata oluştu: $e'),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class GloBroker extends StatelessWidget {

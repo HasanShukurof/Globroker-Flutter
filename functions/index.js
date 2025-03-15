@@ -26,6 +26,12 @@ exports.sendNotification = onDocumentCreated('Messages/{messageId}', async (even
     console.log('MESAJ DATA:', message);
 
     try {
+        // Mesajın okunmuş olup olmadığını kontrol et
+        if (message.isRead) {
+            console.log('MESAJ ZATEN OKUNMUŞ, BİLDİRİM GÖNDERİLMİYOR');
+            return;
+        }
+
         // Gönderici bilgilerini al
         const senderDoc = await firestore
             .collection('Users')
@@ -48,6 +54,12 @@ exports.sendNotification = onDocumentCreated('Messages/{messageId}', async (even
             return;
         }
 
+        // Alıcı ve gönderici aynı kişi ise bildirim gönderme
+        if (message.senderId === message.receiverId) {
+            console.log('GÖNDEREN VE ALICI AYNI KİŞİ, BİLDİRİM GÖNDERİLMİYOR');
+            return;
+        }
+
         // FCM token kontrolü
         const receiverData = receiverDoc.data();
         console.log('ALICI FCM TOKEN:', receiverData.fcmToken);
@@ -65,6 +77,27 @@ exports.sendNotification = onDocumentCreated('Messages/{messageId}', async (even
             return;
         }
 
+        // Son 10 saniye içinde aynı gönderici-alıcı arasında bildirim gönderilmiş mi kontrol et
+        const recentNotificationsQuery = await firestore
+            .collection('RecentNotifications')
+            .where('senderId', '==', message.senderId)
+            .where('receiverId', '==', message.receiverId)
+            .where('timestamp', '>', new Date(Date.now() - 10000)) // Son 10 saniye
+            .get();
+
+        if (!recentNotificationsQuery.empty) {
+            console.log('SON 10 SANİYE İÇİNDE AYNI KİŞİDEN BİLDİRİM GÖNDERİLMİŞ, TEKRAR GÖNDERİLMİYOR');
+            return;
+        }
+
+        // Bildirim gönderildiğini kaydet
+        await firestore.collection('RecentNotifications').add({
+            senderId: message.senderId,
+            receiverId: message.receiverId,
+            messageId: event.params.messageId,
+            timestamp: admin.firestore.FieldValue.serverTimestamp()
+        });
+
         const notification = {
             token: receiverData.fcmToken,
             notification: {
@@ -74,21 +107,31 @@ exports.sendNotification = onDocumentCreated('Messages/{messageId}', async (even
             android: {
                 notification: {
                     clickAction: 'FLUTTER_NOTIFICATION_CLICK',
-                    channelId: 'high_importance_channel'
+                    channelId: 'high_importance_channel',
+                    priority: 'high',
+                    visibility: 'public',
+                    sound: 'default',
+                    tag: `message_${message.senderId}` // Aynı gönderenden gelen bildirimleri grupla
                 }
             },
             apns: {
                 payload: {
                     aps: {
                         sound: 'default',
-                        badge: 1
+                        badge: 1,
+                        contentAvailable: true,
+                        mutableContent: true,
+                        threadId: message.senderId // iOS'ta aynı gönderenden gelen bildirimleri grupla
                     }
                 }
             },
             data: {
                 senderId: message.senderId,
                 senderName: senderName,
-                type: 'message'
+                type: 'message',
+                messageId: event.params.messageId,
+                content: message.content,
+                timestamp: message.timestamp ? message.timestamp.toDate().toISOString() : new Date().toISOString()
             }
         };
 

@@ -33,8 +33,17 @@ class _ChatScreenState extends State<ChatScreen> {
         .where('isRead', isEqualTo: false)
         .get();
 
-    for (var doc in messagesQuery.docs) {
-      await doc.reference.update({'isRead': true});
+    // Batch işlemi kullanarak tüm mesajları tek seferde güncelleyelim
+    if (messagesQuery.docs.isNotEmpty) {
+      final batch = FirebaseFirestore.instance.batch();
+
+      for (var doc in messagesQuery.docs) {
+        batch.update(doc.reference, {'isRead': true});
+      }
+
+      await batch.commit();
+
+      print('${messagesQuery.docs.length} mesaj okundu olarak işaretlendi');
     }
 
     // Badge sayısını güncelle
@@ -67,6 +76,12 @@ class _ChatScreenState extends State<ChatScreen> {
     _markMessagesAsRead();
     // Alıcının profil bilgilerini getir
     _getReceiverInfo();
+
+    // Ekran aktif olduğunda düzenli olarak mesajları okundu olarak işaretle
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Ekran her görüntülendiğinde mesajları okundu olarak işaretle
+      _markMessagesAsRead();
+    });
   }
 
   void _sendMessage() async {
@@ -85,6 +100,7 @@ class _ChatScreenState extends State<ChatScreen> {
         receiverId: widget.receiverId,
         content: messageText,
         timestamp: DateTime.now(),
+        isRead: false, // Yeni gönderilen mesaj okunmamış olarak işaretlenir
       );
 
       await FirebaseFirestore.instance
@@ -170,6 +186,11 @@ class _ChatScreenState extends State<ChatScreen> {
                           Message.fromMap(doc.data() as Map<String, dynamic>))
                       .toList();
 
+                  // Mesajlar yüklendiğinde okunmamış mesajları okundu olarak işaretle
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    _markMessagesAsRead();
+                  });
+
                   return ListView.builder(
                     reverse: true,
                     itemCount: messages.length,
@@ -232,14 +253,31 @@ class _ChatScreenState extends State<ChatScreen> {
                                 ),
                               ),
                               const SizedBox(height: 4),
-                              Text(
-                                formattedTime,
-                                style: TextStyle(
-                                  color: isMe
-                                      ? Colors.white.withOpacity(0.7)
-                                      : Colors.black54,
-                                  fontSize: 10,
-                                ),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    formattedTime,
+                                    style: TextStyle(
+                                      color: isMe
+                                          ? Colors.white.withOpacity(0.7)
+                                          : Colors.black54,
+                                      fontSize: 10,
+                                    ),
+                                  ),
+                                  if (isMe) ...[
+                                    const SizedBox(width: 4),
+                                    Icon(
+                                      message.isRead
+                                          ? Icons.done_all
+                                          : Icons.done,
+                                      size: 14,
+                                      color: message.isRead
+                                          ? Colors.blue[100]
+                                          : Colors.white.withOpacity(0.7),
+                                    ),
+                                  ],
+                                ],
                               ),
                             ],
                           ),
@@ -308,5 +346,12 @@ class _ChatScreenState extends State<ChatScreen> {
   void dispose() {
     _messageController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Ekran tekrar görüntülendiğinde mesajları okundu olarak işaretle
+    _markMessagesAsRead();
   }
 }
