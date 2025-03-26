@@ -3,6 +3,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:globroker/services/auth_service.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -16,6 +18,7 @@ class _AuthScreenState extends State<AuthScreen> {
   bool _isLogin = true;
   bool _isLoading = false;
   bool _obscurePassword = true;
+  final _authService = AuthService();
 
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -187,6 +190,40 @@ class _AuthScreenState extends State<AuthScreen> {
           content: Text(message),
           backgroundColor: Colors.red,
           duration: const Duration(seconds: 4),
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.all(16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _handleAppleSignIn() async {
+    if (_isLoading) return;
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final userCredential = await _authService.signInWithApple();
+
+      if (userCredential?.user != null) {
+        await _saveUserToFirestore(userCredential!.user!);
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Apple ilə giriş zamanı xəta baş verdi'),
+          backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
           margin: const EdgeInsets.all(16),
           shape: RoundedRectangleBorder(
@@ -415,6 +452,14 @@ class _AuthScreenState extends State<AuthScreen> {
                   ),
                   label: const Text('Google ilə daxil ol'),
                 ),
+                if (Platform.isIOS)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: SignInWithAppleButton(
+                      onPressed: _handleAppleSignIn,
+                      style: SignInWithAppleButtonStyle.black,
+                    ),
+                  ),
               ],
             ),
           ),

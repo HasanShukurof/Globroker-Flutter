@@ -60,6 +60,12 @@
 				<string>com.hasanshukurov.globroker</string>
 			</array>
 		</dict>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.522334842203-nb7udfr63brnjuglc0ncnl73plfoc85j</string>
+			</array>
+		</dict>
 	</array>
 	<!-- Google Sign In clientId -->
 	<key>GIDClientID</key>
