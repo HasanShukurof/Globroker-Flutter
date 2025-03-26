@@ -97,16 +97,25 @@ class ChatsListScreen extends StatelessWidget {
           final Set<String> chatUserIds = {};
           for (var doc in snapshot.data!.docs) {
             final data = doc.data() as Map<String, dynamic>;
-            if (data['senderId'] == currentUser.uid) {
-              chatUserIds.add(data['receiverId'] as String);
-            } else {
-              chatUserIds.add(data['senderId'] as String);
+            final senderId = data['senderId'] as String;
+            final receiverId = data['receiverId'] as String;
+
+            // Sadece kullanıcının kendi sohbetlerini ekle
+            if (senderId == currentUser.uid) {
+              chatUserIds.add(receiverId);
+            } else if (receiverId == currentUser.uid) {
+              chatUserIds.add(senderId);
             }
           }
 
           if (chatUserIds.isEmpty) {
-            return const Center(
-              child: Text('Hələ heç bir söhbətiniz yoxdur'),
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text('Hələ heç bir söhbətiniz yoxdur'),
+                ],
+              ),
             );
           }
 

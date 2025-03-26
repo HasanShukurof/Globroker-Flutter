@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:globroker/screens/profile_edit_screen.dart';
 import 'package:globroker/screens/profile_image_screen.dart';
+import 'package:globroker/services/auth_service.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -13,6 +14,7 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   final _currentUser = FirebaseAuth.instance.currentUser!;
+  final _authService = AuthService();
   bool _isLoading = true;
   bool _isDeletingAccount = false;
   Map<String, dynamic>? _userData;
@@ -185,43 +187,165 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _showReauthenticateDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Təhlükəsizlik doğrulaması'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('Hesabınızı silmək üçün şifrənizi daxil edin'),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _passwordController,
-              decoration: const InputDecoration(
-                labelText: 'Şifrə',
-                border: OutlineInputBorder(),
+    final provider = _currentUser.providerData.first.providerId;
+
+    switch (provider) {
+      case 'apple.com':
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Hesabı sil'),
+            content: const Text(
+                'Hesabınızı silmək üçün Apple ilə yenidən giriş etməlisiniz. Davam etmək istəyirsiniz?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Ləğv et'),
               ),
-              obscureText: true,
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _reauthenticateWithApple();
+                },
+                child: const Text('Davam et'),
+              ),
+            ],
+          ),
+        );
+        break;
+
+      case 'google.com':
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Hesabı sil'),
+            content: const Text(
+                'Hesabınızı silmək üçün Google ilə yenidən giriş etməlisiniz. Davam etmək istəyirsiniz?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Ləğv et'),
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _reauthenticateWithGoogle();
+                },
+                child: const Text('Davam et'),
+              ),
+            ],
+          ),
+        );
+        break;
+
+      case 'password':
+      default:
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Təhlükəsizlik doğrulaması'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('Hesabınızı silmək üçün şifrənizi daxil edin'),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _passwordController,
+                  decoration: const InputDecoration(
+                    labelText: 'Şifrə',
+                    border: OutlineInputBorder(),
+                  ),
+                  obscureText: true,
+                ),
+              ],
             ),
-          ],
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _passwordController.clear();
+                },
+                child: const Text('Ləğv et'),
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _reauthenticateAndDeleteAccount();
+                },
+                child: const Text('Təsdiqlə'),
+              ),
+            ],
+          ),
+        );
+    }
+  }
+
+  Future<void> _reauthenticateWithApple() async {
+    setState(() {
+      _isDeletingAccount = true;
+    });
+
+    try {
+      final userCredential = await _authService.reauthenticateWithApple();
+
+      if (userCredential != null) {
+        await _deleteAccount();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Apple ilə təkrar giriş uğursuz oldu'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Xəta baş verdi: $e'),
+          backgroundColor: Colors.red,
         ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _passwordController.clear();
-            },
-            child: const Text('Ləğv et'),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isDeletingAccount = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _reauthenticateWithGoogle() async {
+    setState(() {
+      _isDeletingAccount = true;
+    });
+
+    try {
+      final userCredential = await _authService.reauthenticateWithGoogle();
+
+      if (userCredential != null) {
+        await _deleteAccount();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Google ilə təkrar giriş uğursuz oldu'),
+            backgroundColor: Colors.red,
           ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _reauthenticateAndDeleteAccount();
-            },
-            child: const Text('Təsdiqlə'),
-          ),
-        ],
-      ),
-    );
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Xəta baş verdi: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isDeletingAccount = false;
+        });
+      }
+    }
   }
 
   Future<void> _reauthenticateAndDeleteAccount() async {

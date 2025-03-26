@@ -30,13 +30,37 @@ class _AuthScreenState extends State<AuthScreen> {
       final userDoc =
           FirebaseFirestore.instance.collection('Users').doc(user.uid);
 
+      // Mevcut kullanıcı verilerini kontrol et
+      final userSnapshot = await userDoc.get();
+      String finalDisplayName = displayName ?? user.displayName ?? 'İstifadəçi';
+
+      // Varsayılan profil resmi URL'si
+      const String defaultAvatarUrl =
+          'https://ui-avatars.com/api/?background=random&color=ffffff&name=';
+
+      // Apple ile giriş yapan kullanıcılar için özel kontrol
+      if (user.providerData
+          .any((provider) => provider.providerId == 'apple.com')) {
+        if (userSnapshot.exists) {
+          // Eğer kullanıcı daha önce kayıtlıysa ve displayName varsa, onu koru
+          final existingData = userSnapshot.data() as Map<String, dynamic>;
+          if (existingData['displayName'] != null &&
+              existingData['displayName'] != 'İstifadəçi') {
+            finalDisplayName = existingData['displayName'];
+          }
+        }
+      }
+
       final userData = {
         'uid': user.uid,
         'email': user.email,
-        'displayName': displayName ?? user.displayName ?? 'İstifadəçi',
-        'createdAt': FieldValue.serverTimestamp(),
+        'displayName': finalDisplayName,
+        'createdAt': userSnapshot.exists
+            ? userSnapshot.get('createdAt')
+            : FieldValue.serverTimestamp(),
         'lastLogin': FieldValue.serverTimestamp(),
-        'photoURL': user.photoURL,
+        'photoURL': user.photoURL ??
+            '$defaultAvatarUrl${Uri.encodeComponent(finalDisplayName)}',
       };
 
       print('Kaydedilecek veri: $userData');

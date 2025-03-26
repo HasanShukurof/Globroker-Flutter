@@ -150,10 +150,16 @@ class _ChatScreenState extends State<ChatScreen> {
               child: StreamBuilder<QuerySnapshot>(
                 stream: FirebaseFirestore.instance
                     .collection('Messages')
-                    .where('senderId',
-                        whereIn: [_currentUser.uid, widget.receiverId])
-                    .where('receiverId',
-                        whereIn: [_currentUser.uid, widget.receiverId])
+                    .where(Filter.and(
+                      Filter.or(
+                        Filter('senderId', isEqualTo: _currentUser.uid),
+                        Filter('senderId', isEqualTo: widget.receiverId),
+                      ),
+                      Filter.or(
+                        Filter('receiverId', isEqualTo: _currentUser.uid),
+                        Filter('receiverId', isEqualTo: widget.receiverId),
+                      ),
+                    ))
                     .orderBy('timestamp', descending: true)
                     .snapshots(),
                 builder: (context, snapshot) {
@@ -168,6 +174,11 @@ class _ChatScreenState extends State<ChatScreen> {
                   final messages = snapshot.data!.docs
                       .map((doc) =>
                           Message.fromMap(doc.data() as Map<String, dynamic>))
+                      .where((message) =>
+                          (message.senderId == _currentUser.uid &&
+                              message.receiverId == widget.receiverId) ||
+                          (message.senderId == widget.receiverId &&
+                              message.receiverId == _currentUser.uid))
                       .toList();
 
                   return ListView.builder(
