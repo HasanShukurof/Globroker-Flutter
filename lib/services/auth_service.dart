@@ -1,10 +1,12 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class AuthService {
   final _firebaseAuth = FirebaseAuth.instance;
   final _googleSignIn = GoogleSignIn();
+  final _firestore = FirebaseFirestore.instance;
 
   // Stream to listen to authentication state changes
   Stream<User?> authStateChanges() => _firebaseAuth.authStateChanges();
@@ -25,6 +27,9 @@ class AuthService {
       final String displayName =
           '${appleCredential.givenName ?? ''} ${appleCredential.familyName ?? ''}'
               .trim();
+      final String finalDisplayName = displayName.isNotEmpty
+          ? displayName
+          : (appleCredential.email?.split('@')[0] ?? 'İstifadəçi');
 
       final oAuthCredential = OAuthProvider("apple.com").credential(
         idToken: appleCredential.identityToken,
@@ -34,15 +39,20 @@ class AuthService {
       final userCredential =
           await _firebaseAuth.signInWithCredential(oAuthCredential);
 
-      // Apple ile ilk kez giriş yapıldığında kullanıcı adını güncelle
-      if (displayName.isNotEmpty) {
-        await userCredential.user?.updateDisplayName(displayName);
-      } else if (userCredential.user?.displayName == null ||
-          userCredential.user?.displayName?.isEmpty == true) {
-        // Eğer displayName boşsa ve kullanıcının mevcut bir displayName'i yoksa, email'in @ işaretinden önceki kısmını kullan
-        final emailUsername =
-            userCredential.user?.email?.split('@')[0] ?? 'İstifadəçi';
-        await userCredential.user?.updateDisplayName(emailUsername);
+      // Kullanıcı adını hem Firebase Auth hem de Firestore'a kaydet
+      if (userCredential.user != null) {
+        await userCredential.user?.updateDisplayName(finalDisplayName);
+
+        // Firestore'a kaydet
+        await _firestore.collection('Users').doc(userCredential.user!.uid).set({
+          'uid': userCredential.user!.uid,
+          'email': userCredential.user!.email,
+          'displayName': finalDisplayName,
+          'createdAt': FieldValue.serverTimestamp(),
+          'lastLogin': FieldValue.serverTimestamp(),
+          'photoURL': userCredential.user!.photoURL ??
+              'https://ui-avatars.com/api/?background=random&color=ffffff&name=${Uri.encodeComponent(finalDisplayName)}',
+        }, SetOptions(merge: true));
       }
 
       return userCredential;
